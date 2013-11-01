@@ -1,5 +1,5 @@
   <property>
-    <name>hive.tez.optimize</name>
+    <name>hive.optimize.tez</name>
     <value>true</value>
   </property>
 </configuration>
