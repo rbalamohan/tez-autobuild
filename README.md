@@ -37,4 +37,4 @@ versus the Tez run
 
 The tez memory settings have been tuned down to fit inside a 4Gb VM.
 
-If you have a bigger VM/actual HDP2 cluster, it makes sense to edit the tez-site.xml where it says 1024 & -Xmx800m to 8192 & -Xmx7168.
+If you have a bigger VM/actual HDP2 cluster, it makes sense to edit the tez-site.xml where it says 512 & -Xmx400m to 8192 & -Xmx7168.
