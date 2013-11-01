@@ -29,7 +29,7 @@ protobuf: git
 	wget -c http://protobuf.googlecode.com/files/protobuf-2.5.0.tar.bz2
 	tar -xvf protobuf-2.5.0.tar.bz2
 	test -f /opt/protoc/bin/protoc || \
-	(/opt/hadoop-build/ export PATH=$$PATH:/usr/bin/; cd protobuf-2.5.0; \
+	(cd protobuf-2.5.0; \
 	./configure --prefix=/opt/protoc/; \
 	make -j4; \
 	make install -k)
