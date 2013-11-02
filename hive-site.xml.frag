@@ -2,4 +2,8 @@
     <name>hive.optimize.tez</name>
     <value>true</value>
   </property>
+  <property>
+    <name>javax.jdo.option.ConnectionPassword</name>
+    <value>hive</value>
+  </property>
 </configuration>
