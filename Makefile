@@ -41,18 +41,18 @@ tez: git maven protobuf
 	cd tez/; . /etc/profile; \
 	mvn clean package install -Pdist -DskipTests -Dhadoop.version=2.2.0;
 
-hive: ant tez-dist.tar.gz 
+hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch tez https://github.com/apache/hive
 	-- cd hive; git pull --rebase
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/:/opt/ant/bin; \
 	cd hive/; . /etc/profile; \
-	ant clean package -Dresolvers=internal -Dhadoop-0.23.version=2.2.0 -Dbuild.profile=nohcat;
+	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=2.2.0 -Dbuild.profile=nohcat;
 
 dist-tez: tez
 	tar -C tez/tez-dist/target/tez-*full/tez-*full -czvf tez-dist.tar.gz .
 
 dist-hive: hive
-	tar -C hive/build/dist/ -czvf hive-dist.tar.gz .
+	tar -C hive/packaging/target/apache-hive*/apache-hive*/ -czvf hive-dist.tar.gz .
 
 tez-dist.tar.gz:
 	@echo "run make dist to get tez-dist.tar.gz"
