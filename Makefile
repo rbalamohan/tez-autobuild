@@ -63,26 +63,26 @@ hive-dist.tar.gz:
 dist: dist-tez dist-hive
 
 install: tez-dist.tar.gz hive-dist.tar.gz
-        rm -rf /opt/tez
-        mkdir -p /opt/tez/conf
-        tar -C /opt/tez/ -xzvf tez-dist.tar.gz
-        cp -v tez-site.xml /opt/tez/conf/
-        su hdfs -c "hadoop fs -rm -R -f /apps/tez/"
-        su hdfs -c "hadoop fs -mkdir -p /apps/tez/"
-        su hdfs -c "hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
-        rm -rf /opt/hive
-        mkdir -p /opt/hive
-        tar -C /opt/hive -xzvf hive-dist.tar.gz
-        rsync -avP /etc/hive/conf/ /opt/hive/conf/
-        echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/" >> /opt/hive/bin/hive-config.sh
-        sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=/opt/hive/conf/@" /opt/hive/conf/hive-env.sh
-        sed -i~ \
-        -e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
-        -e "/<.configuration>/r hive-site.xml.frag" \
-        -e "x;" \
-        /opt/hive/conf/hive-site.xml    
-        su hdfs -c "hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
-        su hdfs -c "hadoop fs -mkdir -p /user/hive/"
-        su hdfs -c "hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
+	rm -rf /opt/tez
+	mkdir -p /opt/tez/conf
+	tar -C /opt/tez/ -xzvf tez-dist.tar.gz
+	cp -v tez-site.xml /opt/tez/conf/
+	su hdfs -c "hadoop fs -rm -R -f /apps/tez/"
+	su hdfs -c "hadoop fs -mkdir -p /apps/tez/"
+	su hdfs -c "hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
+	rm -rf /opt/hive
+	mkdir -p /opt/hive
+	tar -C /opt/hive -xzvf hive-dist.tar.gz
+	rsync -avP /etc/hive/conf/ /opt/hive/conf/
+	echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/" >> /opt/hive/bin/hive-config.sh
+	sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=/opt/hive/conf/@" /opt/hive/conf/hive-env.sh
+	sed -i~ \
+	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
+	-e "/<.configuration>/r hive-site.xml.frag" \
+	-e "x;" \
+	/opt/hive/conf/hive-site.xml    
+	su hdfs -c "hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
+	su hdfs -c "hadoop fs -mkdir -p /user/hive/"
+	su hdfs -c "hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
 
 .PHONY: hive tez protobuf ant maven
