@@ -63,12 +63,12 @@ hive-dist.tar.gz:
 dist: dist-tez dist-hive
 
 tez-hiveserver-on:
-	@cp startHiveserver2.sh.on /tmp/startHiveserver2.sh
+	@cp scripts/startHiveserver2.sh.on /tmp/startHiveserver2.sh
 	@echo "HiveServer2 will now run jobs using Tez."
 	@echo "Reboot the Sandbox for changes to take effect."
 
 tez-hiveserver-off:
-	@cp startHiveserver2.sh.off /tmp/startHiveserver2.sh
+	@cp scripts/startHiveserver2.sh.off /tmp/startHiveserver2.sh
 	@echo "HiveServer2 will now run jobs using Map-Reduce."
 	@echo "Reboot the Sandbox for changes to take effect."
 
