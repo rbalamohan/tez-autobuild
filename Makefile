@@ -1,6 +1,8 @@
 
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
+TEZ_VERSION=0.2.0
+TEZ_BRANCH=branch-$(TEZ_VERSION)
 
 git: 
 ifneq ($(YUM),)
@@ -35,7 +37,7 @@ protobuf: git
 	make install -k)
 
 tez: git maven protobuf
-	test -d tez || git clone https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
+	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
 	-- cd tez; git pull --rebase
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/; \
 	cd tez/; . /etc/profile; \
@@ -44,6 +46,7 @@ tez: git maven protobuf
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch tez https://github.com/apache/hive
 	-- cd hive; git pull --rebase
+	-- cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/:/opt/ant/bin; \
 	cd hive/; . /etc/profile; \
 	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=2.2.0 -Dbuild.profile=nohcat;
