@@ -3,6 +3,22 @@
     <value>true</value>
   </property>
   <property>
+    <name>hive.vectorized.execution.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.vectorized.groupby.maxentries</name>
+    <value>10000</value>
+  </property>
+  <property>
+    <name>hive.vectorized.groupby.checkinterval</name>
+    <value>10000</value>
+  </property>
+  <property>
+    <name>hive.input.format</name>
+    <value>org.apache.hadoop.hive.ql.io.HiveInputFormat</value>
+  </property>
+  <property>
     <name>javax.jdo.option.ConnectionPassword</name>
     <value>hive</value>
   </property>
