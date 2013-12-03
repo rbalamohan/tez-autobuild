@@ -49,8 +49,16 @@
     <value>1.7</value>
   </property>
   <property>
+    <name>tez.am.grouping.min-size</name>
+    <value>16777216</value>
+  </property>
+  <property>
     <name>tez.am.container.reuse.enabled</name>
     <value>true</value>
+  </property>
+  <property>
+    <name>tez.am.container.session.delay-allocation-millis</name>
+    <value>240000</value>
   </property>
   <property>
     <name>tez.am.container.reuse.rack-fallback.enabled</name>
