@@ -3,6 +3,13 @@ YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TEZ_VERSION=0.2.0
 TEZ_BRANCH=branch-$(TEZ_VERSION)
+HDFS=$(shell id hdfs 2> /dev/null)
+
+ifneq ($(HDFS),)
+	AS_HDFS=su hdfs bash
+else
+	AS_HDFS=bash
+endif
 
 git: 
 ifneq ($(YUM),)
@@ -10,10 +17,11 @@ ifneq ($(YUM),)
 	gcc gcc-c++ \
 	pdsh \
 	cmake \
-	zlib-devel openssl-devel
+	zlib-devel openssl-devel \
+	mysql-connector-java
 endif
 ifneq ($(APT),)
-	apt-get install -y git gcc g++ python man cmake zlib1g-dev libssl-dev 
+	apt-get install -y git gcc g++ python man cmake zlib1g-dev libssl-dev libmysql-java 
 endif
 
 maven: 
@@ -80,22 +88,22 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	mkdir -p /opt/tez/conf
 	tar -C /opt/tez/ -xzvf tez-dist.tar.gz
 	cp -v tez-site.xml /opt/tez/conf/
-	su hdfs -c "hadoop fs -rm -R -f /apps/tez/"
-	su hdfs -c "hadoop fs -mkdir -p /apps/tez/"
-	su hdfs -c "hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
+	$(AS_HDFS) -c "hadoop fs -rm -R -f /apps/tez/"
+	$(AS_HDFS) -c "hadoop fs -mkdir -p /apps/tez/"
+	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
 	rm -rf /opt/hive
 	mkdir -p /opt/hive
 	tar -C /opt/hive -xzvf hive-dist.tar.gz
 	rsync -avP /etc/hive/conf/ /opt/hive/conf/
-	echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/" >> /opt/hive/bin/hive-config.sh
+	echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/:/usr/share/java/*" >> /opt/hive/bin/hive-config.sh
 	sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=/opt/hive/conf/@" /opt/hive/conf/hive-env.sh
 	sed -i~ \
 	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
 	-e "/<.configuration>/r hive-site.xml.frag" \
 	-e "x;" \
 	/opt/hive/conf/hive-site.xml    
-	su hdfs -c "hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
-	su hdfs -c "hadoop fs -mkdir -p /user/hive/"
-	su hdfs -c "hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
+	$(AS_HDFS) -c "hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
+	$(AS_HDFS) -c "hadoop fs -mkdir -p /user/hive/"
+	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
 
 .PHONY: hive tez protobuf ant maven
