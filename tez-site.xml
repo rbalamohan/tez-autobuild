@@ -69,10 +69,6 @@
     <value>true</value>
   </property>
   <property>
-    <name>tez.am.container.session.delay-allocation-millis</name>
-    <value>15000</value>
-  </property>
-  <property>
     <name>tez.am.container.reuse.locality.delay-allocation-millis</name>
     <value>250</value>
   </property>
