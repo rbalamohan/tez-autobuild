@@ -1,9 +1,11 @@
 
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
-TEZ_VERSION=0.2.0
-TEZ_BRANCH=branch-$(TEZ_VERSION)
+TEZ_VERSION=0.3.0
+TEZ_BRANCH=HEAD
 HDFS=$(shell id hdfs 2> /dev/null)
+HADOOP_VERSION=2.3.0
+
 
 ifneq ($(HDFS),)
 	AS_HDFS=su hdfs bash
@@ -46,18 +48,17 @@ protobuf: git
 
 tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
-	-- cd tez; git pull --rebase
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/; \
 	cd tez/; . /etc/profile; \
-	mvn clean package install -Pdist -DskipTests -Dhadoop.version=2.2.0;
+	mvn clean package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION);
 
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch tez https://github.com/apache/hive
-	-- cd hive; git pull --rebase
+	cd hive; git pull --rebase
 	-- cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/:/opt/ant/bin; \
 	cd hive/; . /etc/profile; \
-	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=2.2.0 -Dbuild.profile=nohcat;
+	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat;
 
 dist-tez: tez
 	tar -C tez/tez-dist/target/tez-*full/tez-*full -czvf tez-dist.tar.gz .
@@ -88,6 +89,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	mkdir -p /opt/tez/conf
 	tar -C /opt/tez/ -xzvf tez-dist.tar.gz
 	cp -v tez-site.xml /opt/tez/conf/
+	chmod 755 -R /opt/
 	$(AS_HDFS) -c "hadoop fs -rm -R -f /apps/tez/"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p /apps/tez/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
