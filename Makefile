@@ -14,16 +14,18 @@ endif
 
 git: 
 ifneq ($(YUM),)
-	yum -y install git-core \
-	gcc gcc-c++ \
-	pdsh \
-	cmake \
-	zlib-devel openssl-devel \
-	mysql-connector-java
+        yum -y install git-core \
+        gcc gcc-c++ \
+        pdsh \
+        cmake \
+        zlib-devel openssl-devel mysql-server mysql-devel mysql \
+        mysql-connector-java
 endif
 ifneq ($(APT),)
-	apt-get install -y git gcc g++ python man cmake zlib1g-dev libssl-dev libmysql-java 
-endif
+	apt-get install -y git gcc g++ python man cmake zlib1g-dev libssl-dev libmysql-java mysql-server mysql-client
+endif   
+	service mysql restart
+	#mysqladmin -u root password 'root'
 
 maven: 
 	wget -c http://www.us.apache.org/dist/maven/maven-3/3.0.5/binaries/apache-maven-3.0.5-bin.tar.gz
@@ -62,8 +64,7 @@ tez-maven-register: tez
 
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch tez https://github.com/apache/hive
-	cd hive; \
-	cp pom.xml.patch ./hive; \
+	cp pom.xml.patch ./hive; cd hive; \
 	patch --forward -p0 < pom.xml.patch ;
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/:/opt/ant/bin; \
