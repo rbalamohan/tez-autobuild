@@ -1,4 +1,3 @@
-
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TEZ_VERSION=0.3.0
@@ -96,28 +95,29 @@ tez-hiveserver-off:
 	@echo "Reboot the Sandbox for changes to take effect."
 
 install: tez-dist.tar.gz hive-dist.tar.gz
-	rm -rf /opt/tez
-	mkdir -p /opt/tez/conf
-	tar -C /opt/tez/ -xzvf tez-dist.tar.gz
-	cp -v tez-site.xml /opt/tez/conf/
-	chmod 755 -R /opt/
-	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -rm -R -f /apps/tez/"
-	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -mkdir -p /apps/tez/"
-	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
-	rm -rf /opt/hive
-	mkdir -p /opt/hive
-	tar -C /opt/hive -xzvf hive-dist.tar.gz
-	test -d /etc/hive/conf || (sed -i~ "s@HOSTNAME@`hostname`@" hive-site.xml && cp hive-site.xml /opt/hive/conf && mkdir -p /etc/hive/conf)
-	rsync -avP /etc/hive/conf/ /opt/hive/conf/
-	echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/:/usr/share/java/*" >> /opt/hive/bin/hive-config.sh
-	sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=/opt/hive/conf/@" /opt/hive/conf/hive-env.sh
-	sed -i~ \
-	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
-	-e "/<.configuration>/r hive-site.xml.frag" \
-	-e "x;" \
-	/opt/hive/conf/hive-site.xml    
-	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
-	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -mkdir -p /user/hive/"
-	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
-
+#install:
+        rm -rf /opt/tez
+        mkdir -p /opt/tez/conf
+        tar -C /opt/tez/ -xzvf tez-dist.tar.gz
+        cp -v tez-site.xml /opt/tez/conf/
+        chmod 755 -R /opt/
+        $(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -rm -R -f /apps/tez/"
+        $(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -mkdir -p /apps/tez/"
+        $(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
+        rm -rf /opt/hive
+        mkdir -p /opt/hive
+        tar -C /opt/hive -xzvf hive-dist.tar.gz
+        test -d /etc/hive/conf || (sed -i~ "s@HOSTNAME@`hostname`@" hive-site.xml && cp hive-site.xml /opt/hive/conf && mkdir -p /etc/hive/conf)
+        rsync -avP /etc/hive/conf/ /opt/hive/conf/
+        echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/:/usr/share/java/*" >> /opt/hive/bin/hive-config.sh
+        sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=/opt/hive/conf/@" /opt/hive/conf/hive-env.sh
+        sed -i~ \
+        -e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
+        -e "/<.configuration>/r hive-site.xml.frag" \
+        -e "x;" \
+        /opt/hive/conf/hive-site.xml
+        chmod 755 -R /opt/hive
+        $(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
+        $(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -mkdir -p /user/hive/"
+        $(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
 .PHONY: hive tez protobuf ant maven
