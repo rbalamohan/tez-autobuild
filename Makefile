@@ -1,9 +1,11 @@
 
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
-TEZ_VERSION=0.2.0
-TEZ_BRANCH=branch-$(TEZ_VERSION)
+TEZ_VERSION=0.3.0
+TEZ_BRANCH=master
 HDFS=$(shell id hdfs 2> /dev/null)
+HADOOP_VERSION=2.2.0
+HADOOP_HOME=/opt/hadoop
 
 ifneq ($(HDFS),)
 	AS_HDFS=su hdfs bash
@@ -46,20 +48,30 @@ protobuf: git
 
 tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
-	-- cd tez; git pull --rebase
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/; \
 	cd tez/; . /etc/profile; \
-	mvn clean package install -Pdist -DskipTests -Dhadoop.version=2.2.0;
+	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION);
+
+
+tez-maven-register: tez
+	/opt/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-api/target/tez-api-$(TEZ_VERSION)-incubating-SNAPSHOT.jar -DgroupId=org.apache.tez -DartifactId=tez-api -Dversion=$(TEZ_VERSION) -Dpackaging=jar -DlocalRepositoryPath=/root/.m2/repository 
+	/opt/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-mapreduce/target/tez-mapreduce-$(TEZ_VERSION)-incubating-SNAPSHOT.jar -DgroupId=org.apache.tez -DartifactId=tez-mapreduce -Dversion=$(TEZ_VERSION) -Dpackaging=jar -DlocalRepositoryPath=/root/.m2/repository 
+	/opt/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-runtime-library/target/tez-runtime-library-$(TEZ_VERSION)-incubating-SNAPSHOT.jar -DgroupId=org.apache.tez -DartifactId=tez-runtime-library -Dversion=$(TEZ_VERSION) -Dpackaging=jar -DlocalRepositoryPath=/root/.m2/repository 
+	/opt/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-tests/target/tez-tests-$(TEZ_VERSION)-incubating-SNAPSHOT-tests.jar -DgroupId=org.apache.tez -DartifactId=tez-tests -Dversion=$(TEZ_VERSION) -Dclassifier=tests -Dpackaging=test-jar -DlocalRepositoryPath=/root/.m2/repository 
+	/opt/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-common/target/tez-common-$(TEZ_VERSION)-incubating-SNAPSHOT.jar -DgroupId=org.apache.tez -DartifactId=tez-common -Dversion=$(TEZ_VERSION) -Dpackaging=jar -DlocalRepositoryPath=/root/.m2/repository
+
 
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch tez https://github.com/apache/hive
-	-- cd hive; git pull --rebase
-	-- cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
+	cd hive; \
+	cp pom.xml.patch ./hive; \
+	patch --forward -p0 < pom.xml.patch ;
+	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/:/opt/ant/bin; \
 	cd hive/; . /etc/profile; \
-	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=2.2.0 -Dbuild.profile=nohcat;
+	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat;
 
-dist-tez: tez
+dist-tez: tez-maven-register
 	tar -C tez/tez-dist/target/tez-*full/tez-*full -czvf tez-dist.tar.gz .
 
 dist-hive: hive
@@ -88,12 +100,14 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	mkdir -p /opt/tez/conf
 	tar -C /opt/tez/ -xzvf tez-dist.tar.gz
 	cp -v tez-site.xml /opt/tez/conf/
-	$(AS_HDFS) -c "hadoop fs -rm -R -f /apps/tez/"
-	$(AS_HDFS) -c "hadoop fs -mkdir -p /apps/tez/"
-	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
+	chmod 755 -R /opt/
+	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -rm -R -f /apps/tez/"
+	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -mkdir -p /apps/tez/"
+	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -copyFromLocal -f /opt/tez/*.jar /opt/tez/lib/ /apps/tez/"
 	rm -rf /opt/hive
 	mkdir -p /opt/hive
 	tar -C /opt/hive -xzvf hive-dist.tar.gz
+	test -d /etc/hive/conf || (sed -i~ "s@HOSTNAME@`hostname`@" hive-site.xml && cp hive-site.xml /opt/hive/conf && mkdir -p /etc/hive/conf)
 	rsync -avP /etc/hive/conf/ /opt/hive/conf/
 	echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/:/usr/share/java/*" >> /opt/hive/bin/hive-config.sh
 	sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=/opt/hive/conf/@" /opt/hive/conf/hive-env.sh
@@ -102,8 +116,8 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "/<.configuration>/r hive-site.xml.frag" \
 	-e "x;" \
 	/opt/hive/conf/hive-site.xml    
-	$(AS_HDFS) -c "hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
-	$(AS_HDFS) -c "hadoop fs -mkdir -p /user/hive/"
-	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
+	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
+	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -mkdir -p /user/hive/"
+	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
 
 .PHONY: hive tez protobuf ant maven
