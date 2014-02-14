@@ -108,7 +108,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	rm -rf /opt/hive
 	mkdir -p /opt/hive
 	tar -C /opt/hive -xzvf hive-dist.tar.gz
-	test -d /etc/hive/conf || (sed -i~ "s@HOSTNAME@`hostname`@" hive-site.xml && cp hive-site.xml /opt/hive/conf && mkdir -p /etc/hive/conf)
+	test -d /etc/hive/conf || (sed -i~ "s@HOSTNAME@`hostname`@" hive-site.xml && cp /opt/hive/conf/hive-env.sh.template /opt/hive/conf/hive-env.sh && chmod 755 /opt/hive/conf/hive-env.sh && cp hive-site.xml /opt/hive/conf && mkdir -p /etc/hive/conf)
 	rsync -avP /etc/hive/conf/ /opt/hive/conf/
 	echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/:/usr/share/java/*" >> /opt/hive/bin/hive-config.sh
 	sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=/opt/hive/conf/@" /opt/hive/conf/hive-env.sh
