@@ -8,3 +8,4 @@ protobuf-2.5.0.tar.bz2
 protobuf-2.5.0/
 tez-dist.tar.gz
 tez/
+hive-site.xml.local
