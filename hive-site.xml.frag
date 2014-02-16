@@ -22,4 +22,8 @@
     <name>javax.jdo.option.ConnectionPassword</name>
     <value>hive</value>
   </property>
+  <property>
+    <name>hive.jar.directory</name>
+    <value>hdfs:///user/hive/</value>
+  </property>
 </configuration>
