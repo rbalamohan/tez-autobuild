@@ -1,6 +1,6 @@
   <property>
-    <name>hive.optimize.tez</name>
-    <value>true</value>
+    <name>hive.execution.engine</name>
+    <value>tez</value>
   </property>
   <property>
     <name>hive.vectorized.execution.enabled</name>
