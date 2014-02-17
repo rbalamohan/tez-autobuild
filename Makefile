@@ -10,6 +10,8 @@ APP_PATH:=$(shell echo /user/$$USER/apps/`date +%Y-%b-%d`/)
 INSTALL_ROOT:=$(shell echo $$PWD/dist/)
 HIVE_CONF_DIR=/etc/hive/conf/
 
+-include local.mk
+
 ifneq ($(HDFS),)
 	AS_HDFS=sudo -u hdfs env PATH=$$PATH JAVA_HOME=$$JAVA_HOME HADOOP_HOME=$$HADOOP_HOME HADOOP_CONF_DIR=$$HADOOP_CONF_DIR bash
 else
