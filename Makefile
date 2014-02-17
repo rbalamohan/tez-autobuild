@@ -51,7 +51,7 @@ tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/; \
 	cd tez/; . /etc/profile; \
-	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION);
+	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Dmaven.javadoc.skip=true;
 
 
 tez-maven-register: tez
@@ -69,7 +69,7 @@ hive: tez-dist.tar.gz
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/:/opt/ant/bin; \
 	cd hive/; . /etc/profile; \
-	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat;
+	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dmaven.javadoc.skip=true;
 
 dist-tez: tez-maven-register
 	tar -C tez/tez-dist/target/tez-*full/tez-*full -czvf tez-dist.tar.gz .
