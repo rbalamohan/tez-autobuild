@@ -1,4 +1,3 @@
-
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TEZ_VERSION=0.3.0
@@ -15,16 +14,18 @@ endif
 
 git: 
 ifneq ($(YUM),)
-	yum -y install git-core \
-	gcc gcc-c++ \
-	pdsh \
-	cmake \
-	zlib-devel openssl-devel \
-	mysql-connector-java
+        yum -y install git-core \
+        gcc gcc-c++ \
+        pdsh \
+        cmake \
+        zlib-devel openssl-devel mysql-server mysql-devel mysql \
+        mysql-connector-java
 endif
 ifneq ($(APT),)
-	apt-get install -y git gcc g++ python man cmake zlib1g-dev libssl-dev libmysql-java 
-endif
+	apt-get install -y git gcc g++ python man cmake zlib1g-dev libssl-dev libmysql-java mysql-server mysql-client
+endif   
+	service mysql restart
+	#mysqladmin -u root password 'root'
 
 maven: 
 	wget -c http://www.us.apache.org/dist/maven/maven-3/3.0.5/binaries/apache-maven-3.0.5-bin.tar.gz
@@ -50,7 +51,7 @@ tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/; \
 	cd tez/; . /etc/profile; \
-	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION);
+	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Dmaven.javadoc.skip=true;
 
 
 tez-maven-register: tez
@@ -63,13 +64,12 @@ tez-maven-register: tez
 
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch tez https://github.com/apache/hive
-	cd hive; \
-	cp pom.xml.patch ./hive; \
+	cp pom.xml.patch ./hive; cd hive; \
 	patch --forward -p0 < pom.xml.patch ;
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=/opt/protoc/bin:$$PATH:/opt/maven/bin/:/opt/ant/bin; \
 	cd hive/; . /etc/profile; \
-	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat;
+	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dmaven.javadoc.skip=true;
 
 dist-tez: tez-maven-register
 	tar -C tez/tez-dist/target/tez-*full/tez-*full -czvf tez-dist.tar.gz .
@@ -96,6 +96,7 @@ tez-hiveserver-off:
 	@echo "Reboot the Sandbox for changes to take effect."
 
 install: tez-dist.tar.gz hive-dist.tar.gz
+#install:
 	rm -rf /opt/tez
 	mkdir -p /opt/tez/conf
 	tar -C /opt/tez/ -xzvf tez-dist.tar.gz
@@ -107,17 +108,17 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	rm -rf /opt/hive
 	mkdir -p /opt/hive
 	tar -C /opt/hive -xzvf hive-dist.tar.gz
-	test -d /etc/hive/conf || (sed -i~ "s@HOSTNAME@`hostname`@" hive-site.xml && cp hive-site.xml /opt/hive/conf && mkdir -p /etc/hive/conf)
+	test -d /etc/hive/conf || (sed -i~ "s@HOSTNAME@`hostname`@" hive-site.xml && cp /opt/hive/conf/hive-env.sh.template /opt/hive/conf/hive-env.sh && chmod 755 /opt/hive/conf/hive-env.sh && cp hive-site.xml /opt/hive/conf && mkdir -p /etc/hive/conf)
 	rsync -avP /etc/hive/conf/ /opt/hive/conf/
 	echo "export HADOOP_CLASSPATH=$$HADOOP_CLASSPATH:/opt/tez/*:/opt/tez/lib/*:/opt/tez/conf/:/usr/share/java/*" >> /opt/hive/bin/hive-config.sh
 	sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=/opt/hive/conf/@" /opt/hive/conf/hive-env.sh
 	sed -i~ \
-	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
-	-e "/<.configuration>/r hive-site.xml.frag" \
-	-e "x;" \
-	/opt/hive/conf/hive-site.xml    
+		-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
+		-e "/<.configuration>/r hive-site.xml.frag" \
+		-e "x;" \
+		/opt/hive/conf/hive-site.xml
+	chmod 755 -R /opt/hive
 	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -rm -f /user/hive/hive-exec-0.13.0-SNAPSHOT.jar"
 	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -mkdir -p /user/hive/"
 	$(AS_HDFS) -c "$(HADOOP_HOME)/bin/hadoop fs -copyFromLocal -f /opt/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar /user/hive/"
-
 .PHONY: hive tez protobuf ant maven
