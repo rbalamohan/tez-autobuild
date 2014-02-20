@@ -119,10 +119,6 @@
     <name>hive.optimize.reducededuplication</name>
     <value>true</value>
   </property>
-    <property>
-    <name>hive.metastore.uris</name>
-    <value>thrift://HOSTNAME:9083</value>
-  </property>
   <property>
     <name>hive.execution.engine</name>
     <value>tez</value>

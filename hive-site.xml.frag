@@ -19,6 +19,10 @@
     <value>org.apache.hadoop.hive.ql.io.HiveInputFormat</value>
   </property>
   <property>
+    <name>hive.optimize.index.filter</name>
+    <value>true</value>
+  </property>
+  <property>
     <name>javax.jdo.option.ConnectionPassword</name>
     <value>hive</value>
   </property>
@@ -26,4 +30,17 @@
     <name>hive.jar.directory</name>
     <value>hdfs:///user/hive/</value>
   </property>
+  <property>
+    <name>hive.server2.tez.default.queues</name>
+    <value>default</value>
+  </property>
+  <property>
+    <name>hive.server2.tez.sessions.per.default.queue</name>
+    <value>1</value>
+  </property>
+  <property>
+    <name>hive.server2.tez.initialize.default.sessions</name>
+    <value>true</value>
+  </property>
+
 </configuration>
