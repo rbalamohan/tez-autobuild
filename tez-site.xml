@@ -53,6 +53,10 @@
     <value>16777216</value>
   </property>
   <property>
+    <name>tez.am.grouping.max-size</name>
+    <value>67108864</value>
+  </property>>
+  <property>
     <name>tez.am.container.reuse.enabled</name>
     <value>true</value>
   </property>
@@ -91,5 +95,9 @@
   <property>
     <name>tez.task.get-task.sleep.interval-ms.max</name>
     <value>100</value>
+  </property>
+  <property>
+    <name>tez.am.shuffle-vertex-manager.enable.auto-parallel</name>
+    <value>true</value>
   </property>
 </configuration>
