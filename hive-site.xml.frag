@@ -42,5 +42,13 @@
     <name>hive.server2.tez.initialize.default.sessions</name>
     <value>true</value>
   </property>
+  <property>
+    <name>hive.prewarm.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.prewarm.numcontainers</name>
+    <value>50</value>
+  </property>
 
 </configuration>
