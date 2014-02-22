@@ -100,4 +100,8 @@
     <name>tez.am.shuffle-vertex-manager.enable.auto-parallel</name>
     <value>true</value>
   </property>
+  <property>
+    <name>tez.generate.dag.viz</name>
+    <value>true</value>
+  </property>
 </configuration>
