@@ -2,13 +2,14 @@
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
-TEZ_VERSION=0.3.0-incubating-SNAPSHOT
-TEZ_BRANCH=master
+TEZ_VERSION=0.3.0-incubating
+TEZ_BRANCH=release-0.3.0-incubating-rc1
 HDFS=$(shell id hdfs 2> /dev/null)
-HADOOP_VERSION=2.3.0-SNAPSHOT
+HADOOP_VERSION=2.3.0
 APP_PATH:=$(shell echo /user/$$USER/apps/`date +%Y-%b-%d`/)
 INSTALL_ROOT:=$(shell echo $$PWD/dist/)
 HIVE_CONF_DIR=/etc/hive/conf/
+OFFLINE=false
 
 -include local.mk
 
@@ -32,18 +33,18 @@ ifneq ($(APT),)
 endif
 
 maven: 
-	wget -c http://www.us.apache.org/dist/maven/maven-3/3.0.5/binaries/apache-maven-3.0.5-bin.tar.gz
+	$(OFFLINE) || wget -c http://www.us.apache.org/dist/maven/maven-3/3.0.5/binaries/apache-maven-3.0.5-bin.tar.gz
 	-- mkdir -p $(INSTALL_ROOT)/maven/
 	tar -C $(INSTALL_ROOT)/maven/ --strip-components=1 -xzvf apache-maven-3.0.5-bin.tar.gz
 
 ant: 
-	wget -c http://archive.apache.org/dist/ant/binaries/apache-ant-1.9.1-bin.tar.gz
+	$(OFFLINE) || wget -c http://archive.apache.org/dist/ant/binaries/apache-ant-1.9.1-bin.tar.gz
 	-- mkdir -p $(INSTALL_ROOT)/ant/
 	tar -C $(INSTALL_ROOT)/ant/ --strip-components=1 -xzvf apache-ant-1.9.1-bin.tar.gz
 	-- yum -y remove ant
 
 protobuf: git 
-	wget -c http://protobuf.googlecode.com/files/protobuf-2.5.0.tar.bz2
+	$(OFFLINE) || wget -c http://protobuf.googlecode.com/files/protobuf-2.5.0.tar.bz2
 	tar -xvf protobuf-2.5.0.tar.bz2
 	test -f $(INSTALL_ROOT)/protoc/bin/protoc || \
 	(cd protobuf-2.5.0; \
@@ -57,16 +58,7 @@ tez: git maven protobuf
 	cd tez/; . /etc/profile; \
 	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION);
 
-
-tez-maven-register: tez
-	$(INSTALL_ROOT)/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-api/target/tez-api-$(TEZ_VERSION).jar -DgroupId=org.apache.tez -DartifactId=tez-api -Dversion=$(TEZ_VERSION) -Dpackaging=jar -DlocalRepositoryPath=/root/.m2/repository 
-	$(INSTALL_ROOT)/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-mapreduce/target/tez-mapreduce-$(TEZ_VERSION).jar -DgroupId=org.apache.tez -DartifactId=tez-mapreduce -Dversion=$(TEZ_VERSION) -Dpackaging=jar -DlocalRepositoryPath=/root/.m2/repository 
-	$(INSTALL_ROOT)/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-runtime-library/target/tez-runtime-library-$(TEZ_VERSION).jar -DgroupId=org.apache.tez -DartifactId=tez-runtime-library -Dversion=$(TEZ_VERSION) -Dpackaging=jar -DlocalRepositoryPath=/root/.m2/repository 
-	$(INSTALL_ROOT)/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-tests/target/tez-tests-$(TEZ_VERSION)-tests.jar -DgroupId=org.apache.tez -DartifactId=tez-tests -Dversion=$(TEZ_VERSION) -Dclassifier=tests -Dpackaging=test-jar -DlocalRepositoryPath=/root/.m2/repository 
-	$(INSTALL_ROOT)/maven/bin/mvn org.apache.maven.plugins:maven-install-plugin:2.5.1:install-file -Dfile=./tez/tez-common/target/tez-common-$(TEZ_VERSION).jar -DgroupId=org.apache.tez -DartifactId=tez-common -Dversion=$(TEZ_VERSION) -Dpackaging=jar -DlocalRepositoryPath=/root/.m2/repository
-
-
-hive: tez-maven-register tez-dist.tar.gz 
+hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch tez https://github.com/apache/hive
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
