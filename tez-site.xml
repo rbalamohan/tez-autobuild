@@ -30,7 +30,7 @@
   </property>
   <property>
     <name>tez.runtime.broadcast.data-via-events.max-size</name>
-    <value>614400</value>
+    <value>512</value>
   </property>
   <property>
     <name>tez.am.aggressive.scheduling</name>
