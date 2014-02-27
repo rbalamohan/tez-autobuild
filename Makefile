@@ -2,8 +2,8 @@
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
-TEZ_VERSION=0.3.0-incubating
-TEZ_BRANCH=release-0.3.0-incubating-rc1
+TEZ_VERSION=0.4.0-incubating-SNAPSHOT
+TEZ_BRANCH=master
 HDFS=$(shell id hdfs 2> /dev/null)
 HADOOP_VERSION=2.3.0
 APP_PATH:=$(shell echo /user/$$USER/apps/`date +%Y-%b-%d`/)
@@ -13,11 +13,11 @@ OFFLINE=false
 
 -include local.mk
 
-ifneq ($(HDFS),)
-	AS_HDFS=sudo -u hdfs env PATH=$$PATH JAVA_HOME=$$JAVA_HOME HADOOP_HOME=$$HADOOP_HOME HADOOP_CONF_DIR=$$HADOOP_CONF_DIR bash
-else
+#ifneq ($(HDFS),)
+#	AS_HDFS=sudo -u hdfs env PATH=$$PATH JAVA_HOME=$$JAVA_HOME HADOOP_HOME=$$HADOOP_HOME HADOOP_CONF_DIR=$$HADOOP_CONF_DIR bash
+#else
 	AS_HDFS=bash
-endif
+#endif
 
 git: 
 ifneq ($(YUM),)
@@ -25,11 +25,10 @@ ifneq ($(YUM),)
 	gcc gcc-c++ \
 	pdsh \
 	cmake \
-	zlib-devel openssl-devel \
-	mysql-connector-java
+	zlib-devel openssl-devel 
 endif
 ifneq ($(APT),)
-	which $(TOOLS) || apt-get install -y git gcc g++ python man cmake zlib1g-dev libssl-dev libmysql-java 
+	which $(TOOLS) || apt-get install -y git gcc g++ python man cmake zlib1g-dev libssl-dev 
 endif
 
 maven: 
@@ -52,6 +51,9 @@ protobuf: git
 	make -j4; \
 	make install -k)
 
+mysql: 
+	$(OFFLINE) || wget -c http://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.29/mysql-connector-java-5.1.29.jar
+
 tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
@@ -68,7 +70,8 @@ hive: tez-dist.tar.gz
 dist-tez: tez 
 	tar -C tez/tez-dist/target/tez-*full/tez-*full -czvf tez-dist.tar.gz .
 
-dist-hive: hive
+dist-hive: mysql hive
+	cp -t hive/packaging/target/apache-hive*/apache-hive*/lib/ mysql*.jar
 	tar --exclude='hadoop-*.jar' --exclude='protobuf-*.jar' -C hive/packaging/target/apache-hive*/apache-hive*/ -czvf hive-dist.tar.gz .
 
 tez-dist.tar.gz:
@@ -104,6 +107,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	(test -d $(HIVE_CONF_DIR) && rsync -avP $(HIVE_CONF_DIR)/ $(INSTALL_ROOT)/hive/conf/) \
 	    || (cp hive-site.xml.default $(INSTALL_ROOT)/hive/conf/hive-site.xml && sed -i~ "s@HOSTNAME@$$(hostname)@" $(INSTALL_ROOT)/hive/conf/hive-site.xml)
 	echo "export HADOOP_CLASSPATH=$(INSTALL_ROOT)/tez/*:$(INSTALL_ROOT)/tez/lib/*:$(INSTALL_ROOT)/tez/conf/:/usr/share/java/*:$$HADOOP_CLASSPATH" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
+	echo "export HADOOP_USER_CLASSPATH_FIRST=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
 		|| echo "export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/" > $(INSTALL_ROOT)/hive/conf/hive-env.sh
 	sed -e "s@hdfs:///user/hive/@$$\{fs.default.name\}$(APP_PATH)/hive/@" hive-site.xml.frag > hive-site.xml.local
