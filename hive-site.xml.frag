@@ -42,5 +42,9 @@
     <name>hive.server2.tez.initialize.default.sessions</name>
     <value>true</value>
   </property>
+  <property>
+    <name>hive.server2.enable.doAs</name>
+    <value>false</value>
+  </property>
 
 </configuration>
