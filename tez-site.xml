@@ -30,7 +30,7 @@
   </property>
   <property>
     <name>tez.runtime.broadcast.data-via-events.max-size</name>
-    <value>614400</value>
+    <value>512</value>
   </property>
   <property>
     <name>tez.am.aggressive.scheduling</name>
@@ -38,11 +38,11 @@
   </property>
   <property>
     <name>tez.am.resource.memory.mb</name>
-    <value>512</value>
+    <value>${mapreduce.map.memory.mb}</value>
   </property>
   <property>
     <name>tez.am.java.opts</name>
-    <value>-server -Xmx400m -Djava.net.preferIPv4Stack=true -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps -XX:+UseNUMA -XX:+UseParallelGC</value>
+    <value>${mapreduce.map.java.opts} -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps -XX:+UseNUMA -XX:+UseParallelGC</value>
   </property>
   <property>
     <name>tez.am.grouping.split-waves</name>
