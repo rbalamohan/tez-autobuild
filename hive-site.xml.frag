@@ -7,10 +7,6 @@
     <value>true</value>
   </property>
   <property>
-    <name>hive.vectorized.groupby.maxentries</name>
-    <value>10000</value>
-  </property>
-  <property>
     <name>hive.vectorized.groupby.checkinterval</name>
     <value>10000</value>
   </property>
@@ -45,6 +41,14 @@
   <property>
     <name>hive.server2.enable.doAs</name>
     <value>false</value>
+  </property>
+  <property>
+    <name>hive.server2.enable.doAs</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>hive.fetch.task.conversion</name>
+	<value>more</value>
   </property>
 
 </configuration>
