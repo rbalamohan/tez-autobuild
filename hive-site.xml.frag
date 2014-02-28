@@ -7,12 +7,8 @@
     <value>true</value>
   </property>
   <property>
-    <name>hive.vectorized.groupby.maxentries</name>
-    <value>10000</value>
-  </property>
-  <property>
     <name>hive.vectorized.groupby.checkinterval</name>
-    <value>10000</value>
+    <value>4096</value>
   </property>
   <property>
     <name>hive.input.format</name>
