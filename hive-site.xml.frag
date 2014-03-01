@@ -48,7 +48,11 @@
   </property>
   <property>
     <name>hive.fetch.task.conversion</name>
-	<value>more</value>
+    <value>more</value>
+  </property>
+  <property>
+    <name>hive.compute.query.using.stats</name>
+    <value>true</value>
   </property>
 
 </configuration>
