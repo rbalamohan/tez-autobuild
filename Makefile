@@ -3,6 +3,7 @@ YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
 TEZ_VERSION=0.4.0-incubating-SNAPSHOT
+HIVE_VERSION=0.14.0-SNAPSHOT
 TEZ_BRANCH=master
 HDFS=$(shell id hdfs 2> /dev/null)
 HADOOP_VERSION=2.3.0
@@ -116,8 +117,8 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
-	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-0.13.0-SNAPSHOT.jar"
+	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-$(HIVE_VERSION).jar"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
-	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-0.13.0-SNAPSHOT.jar $(APP_PATH)/hive/"
+	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
 
 .PHONY: hive tez protobuf ant maven
