@@ -42,7 +42,7 @@
   </property>
   <property>
     <name>tez.am.java.opts</name>
-    <value>${mapreduce.map.java.opts} -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps -XX:+UseNUMA -XX:+UseParallelGC</value>
+    <value>${mapreduce.map.java.opts} -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps -XX:+UseNUMA -XX:+UseParallelGC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/</value>
   </property>
   <property>
     <name>tez.am.grouping.split-waves</name>
@@ -91,5 +91,17 @@
   <property>
     <name>tez.task.get-task.sleep.interval-ms.max</name>
     <value>100</value>
+  </property>
+  <property>
+    <name>tez.generate.dag.viz</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.generate.dag.viz</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.am.shuffle-vertex-manager.enable.auto-parallel</name>
+    <value>false</value>
   </property>
 </configuration>
