@@ -3,8 +3,9 @@ YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
 TEZ_VERSION=0.4.0-incubating-SNAPSHOT
-HIVE_VERSION=0.14.0-SNAPSHOT
 TEZ_BRANCH=master
+HIVE_VERSION=0.14.0-SNAPSHOT
+HIVE_BRANCH=trunk
 HDFS=$(shell id hdfs 2> /dev/null)
 HADOOP_VERSION=2.3.0
 APP_PATH:=$(shell echo /user/$$USER/apps/`date +%Y-%b-%d`/)
@@ -62,7 +63,7 @@ tez: git maven protobuf
 	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION);
 
 hive: tez-dist.tar.gz 
-	test -d hive || git clone --branch tez https://github.com/apache/hive
+	test -d hive || git clone --branch $(HIVE_BRANCH) https://github.com/apache/hive
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
