@@ -121,5 +121,6 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-$(HIVE_VERSION).jar"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
+	$(AS_HDFS) -c "hadoop fs -chmod -R a+r $(APP_PATH)/"
 
 .PHONY: hive tez protobuf ant maven
