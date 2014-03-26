@@ -58,7 +58,7 @@
   </property>
   <property>
     <name>tez.am.container.session.delay-allocation-millis</name>
-    <value>240000</value>
+    <value>1000</value>
   </property>
   <property>
     <name>tez.am.container.reuse.rack-fallback.enabled</name>
@@ -102,6 +102,18 @@
   </property>
   <property>
     <name>tez.am.shuffle-vertex-manager.enable.auto-parallel</name>
-    <value>false</value>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.task.generate.counters.per.io</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.runtime.empty.partitions.info-via-events.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.runtime.sort.threads</name>
+    <value>4</value>
   </property>
 </configuration>
