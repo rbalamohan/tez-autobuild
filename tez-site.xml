@@ -102,7 +102,7 @@
   </property>
   <property>
     <name>tez.am.shuffle-vertex-manager.enable.auto-parallel</name>
-    <value>true</value>
+    <value>false</value>
   </property>
   <property>
     <name>tez.task.generate.counters.per.io</name>
@@ -114,6 +114,6 @@
   </property>
   <property>
     <name>tez.runtime.sort.threads</name>
-    <value>4</value>
+    <value>1</value>
   </property>
 </configuration>
