@@ -15,6 +15,10 @@
     <value>org.apache.hadoop.hive.ql.io.HiveInputFormat</value>
   </property>
   <property>
+    <name>hive.auto.convert.join.noconditionaltask.size</name>
+    <value>128000000</value>
+  </property>
+  <property>
     <name>hive.optimize.index.filter</name>
     <value>true</value>
   </property>
