@@ -1,8 +1,7 @@
-
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
-TEZ_VERSION=0.4.0-incubating-SNAPSHOT
+TEZ_VERSION=0.4.0-incubating
 TEZ_BRANCH=master
 HIVE_VERSION=0.14.0-SNAPSHOT
 HIVE_BRANCH=trunk
