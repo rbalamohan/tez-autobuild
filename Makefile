@@ -2,7 +2,7 @@
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
-TEZ_VERSION=0.4.0-incubating-SNAPSHOT
+TEZ_VERSION=0.5.0-incubating-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=0.14.0-SNAPSHOT
 HIVE_BRANCH=trunk
@@ -60,14 +60,14 @@ tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
-	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION);
+	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION) $$($(OFFLINE) && echo "-o");
 
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch $(HIVE_BRANCH) https://github.com/apache/hive
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
-	mvn package -DskipTests=true -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat;
+	mvn package -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat $$($(OFFLINE) && echo "-o");
 
 dist-tez: tez 
 	tar -C tez/tez-dist/target/tez-*full/tez-*full -czvf tez-dist.tar.gz .
