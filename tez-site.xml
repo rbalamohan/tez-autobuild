@@ -108,6 +108,11 @@
     <name>tez.task.generate.counters.per.io</name>
     <value>true</value>
   </property>
+  <!-- ~4x counters due to per-io -->
+  <property>
+    <name>tez.runtime.job.counters.max</name>
+    <value>4096</value>
+  </property>
   <property>
     <name>tez.runtime.empty.partitions.info-via-events.enabled</name>
     <value>true</value>
