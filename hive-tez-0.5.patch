@@ -1,7 +1,7 @@
-diff --git a/ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java b/ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
+diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
 index 04c497a..0cfb5e3 100644
---- a/ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
-+++ b/ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
+--- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
++++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
 @@ -109,9 +109,9 @@ public void initialize(VertexManagerPluginContext context) {
    @Override
    public void onVertexStarted(Map<String, List<Integer>> completions) {
