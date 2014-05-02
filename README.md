@@ -9,7 +9,7 @@ That should pull tez, hive-tez, build it and install it locally in /opt/hive/
 
 To test this out, you can do
 
-    # /opt/hive/bin/hive
+    # ./dist/hive/bin/hive
     hive> select count(1) from sample_07;
 
 and it should use Tez instead of the default MR API.
@@ -19,7 +19,7 @@ FYI, disabling Tez after you run 1 query doesn't work quite right, but I gave it
 
 To compare performance, you can disable it at the beginning
 
-    # /opt/hive/bin/hive
+    # ./dist/hive/bin/hive
     hive> set hive.optimize.tez=false;   
     hive> select count(1) from sample_07;
     ...
@@ -29,7 +29,7 @@ To compare performance, you can disable it at the beginning
 
 versus the Tez run 
 
-    # /opt/hive/bin/hive
+    # ./dist/hive/bin/hive
     hive> select count(1) from sample_07;
     Time taken: 15.517 seconds, Fetched: 1 row(s)
     hive> select count(1) from sample_07;
