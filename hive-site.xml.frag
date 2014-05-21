@@ -7,6 +7,10 @@
     <value>true</value>
   </property>
   <property>
+    <name>hive.limit.pushdown.memory.usage</name>
+    <value>0.04</value>
+  </property>
+  <property>
     <name>hive.vectorized.groupby.checkinterval</name>
     <value>4096</value>
   </property>
