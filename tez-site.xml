@@ -125,4 +125,8 @@
     <name>tez.am.maxtaskfailures.per.node</name>
     <value>60</value>
   </property>
+  <property>
+    <name>tez.simple.history.logging.dir</name>
+    <value>${fs.default.name}/${user.name}/tez-history/</value>
+  </property>
 </configuration>
