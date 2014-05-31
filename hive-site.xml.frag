@@ -23,12 +23,12 @@
     <value>128000000</value>
   </property>
   <property>
-    <name>hive.optimize.index.filter</name>
-    <value>true</value>
+    <name>hive.optimize.reducededuplication.min.reducer</name>
+    <value>4</value>
   </property>
   <property>
-    <name>javax.jdo.option.ConnectionPassword</name>
-    <value>hive</value>
+    <name>hive.optimize.index.filter</name>
+    <value>true</value>
   </property>
   <property>
     <name>hive.jar.directory</name>
