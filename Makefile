@@ -65,7 +65,7 @@ tez: git maven protobuf
 
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch $(HIVE_BRANCH) https://github.com/apache/hive
-	cd hive; $(REBASE) && (git stash; git clean -f -d; git pull --rebase;)
+	cd hive; if $(REBASE); then (git stash; git clean -f -d; git pull --rebase;); fi
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	# this was a stupid change
 	-- test "$(TEZ_VERSION)" != "0.4.0-incubating" && (cd hive; patch -p0 -f -i ../hive-tez-0.5.patch)
