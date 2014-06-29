@@ -9,6 +9,7 @@ HIVE_BRANCH=trunk
 HDFS=$(shell id hdfs 2> /dev/null)
 HADOOP_VERSION=2.4.0
 APP_PATH:=$(shell echo /user/$$USER/apps/`date +%Y-%b-%d`/)
+HISTORY_PATH:=$(shell echo /user/$$USER/tez-history/build=`date +%Y-%b-%d`/)
 INSTALL_ROOT:=$(shell echo $$PWD/dist/)
 HIVE_CONF_DIR=/etc/hive/conf/
 OFFLINE=false
@@ -104,6 +105,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	tar -C $(INSTALL_ROOT)/tez/ -xzvf tez-dist.tar.gz
 	cp -v tez-site.xml $(INSTALL_ROOT)/tez/conf/
 	sed -i~ "s@/apps@$(APP_PATH)@g" $(INSTALL_ROOT)/tez/conf/tez-site.xml
+	sed -i~ "s@/tez-history/@$(HISTORY_PATH)@g" $(INSTALL_ROOT)/tez/conf/tez-site.xml
 	$(AS_HDFS) -c "hadoop fs -rm -R -f $(APP_PATH)/tez/"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/tez/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/tez/*.jar $(INSTALL_ROOT)/tez/lib/ $(APP_PATH)/tez/"

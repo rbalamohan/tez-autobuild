@@ -127,6 +127,6 @@
   </property>
   <property>
     <name>tez.simple.history.logging.dir</name>
-    <value>${fs.default.name}/${user.name}/tez-history/</value>
+    <value>${fs.default.name}/tez-history/</value>
   </property>
 </configuration>
