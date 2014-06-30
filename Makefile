@@ -2,10 +2,10 @@
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
-TEZ_VERSION=0.5.0-incubating-SNAPSHOT
-TEZ_BRANCH=master
-HIVE_VERSION=0.14.0-SNAPSHOT
-HIVE_BRANCH=trunk
+TEZ_VERSION=0.4.1-incubating
+TEZ_BRANCH=branch-0.4.1-incubating
+HIVE_VERSION=0.13.1
+HIVE_BRANCH=branch-0.13
 HDFS=$(shell id hdfs 2> /dev/null)
 HADOOP_VERSION=2.4.0
 APP_PATH:=$(shell echo /user/$$USER/apps/`date +%Y-%b-%d`/)
@@ -69,7 +69,7 @@ hive: tez-dist.tar.gz
 	cd hive; if $(REBASE); then (git stash; git clean -f -d; git pull --rebase;); fi
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	# this was a stupid change
-	-- test "$(TEZ_VERSION)" != "0.4.0-incubating" && (cd hive; patch -p0 -f -i ../hive-tez-0.5.patch)
+	-- test "$(TEZ_VERSION)" != "0.4.1-incubating" && (cd hive; patch -p0 -f -i ../hive-tez-0.5.patch)
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
 	mvn clean package -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat $$($(OFFLINE) && echo "-o");
