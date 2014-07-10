@@ -104,10 +104,10 @@ index cecedfb..06cbd6b 100644
      // Set the actual events for the tasks.
      context.addRootInputEvents(inputName, taskEvents);
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
-index 2e9728a..2c58987 100644
+index e116426..fa1d97d 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
-@@ -79,7 +79,6 @@
+@@ -80,7 +80,6 @@
  import org.apache.hadoop.yarn.util.ConverterUtils;
  import org.apache.hadoop.yarn.util.Records;
  import org.apache.tez.client.PreWarmContext;
@@ -115,7 +115,7 @@ index 2e9728a..2c58987 100644
  import org.apache.tez.dag.api.DAG;
  import org.apache.tez.dag.api.Edge;
  import org.apache.tez.dag.api.EdgeManagerDescriptor;
-@@ -91,10 +90,10 @@
+@@ -92,10 +91,10 @@
  import org.apache.tez.dag.api.InputDescriptor;
  import org.apache.tez.dag.api.OutputDescriptor;
  import org.apache.tez.dag.api.ProcessorDescriptor;
@@ -127,7 +127,7 @@ index 2e9728a..2c58987 100644
  import org.apache.tez.dag.api.VertexManagerPluginDescriptor;
  import org.apache.tez.dag.library.vertexmanager.ShuffleVertexManager;
  import org.apache.tez.mapreduce.hadoop.InputSplitInfo;
-@@ -596,15 +595,13 @@ private LocalResource createLocalResource(FileSystem remoteFs, Path file,
+@@ -606,15 +605,13 @@ private LocalResource createLocalResource(FileSystem remoteFs, Path file,
    }
  
    /**
@@ -146,7 +146,7 @@ index 2e9728a..2c58987 100644
  
      ProcessorDescriptor prewarmProcDescriptor = new ProcessorDescriptor(HivePreWarmProcessor.class.getName());
      prewarmProcDescriptor.setUserPayload(MRHelpers.createUserPayloadFromConf(conf));
-@@ -614,7 +611,6 @@ public PreWarmContext createPreWarmContext(TezSessionConfiguration sessionConfig
+@@ -624,7 +621,6 @@ public PreWarmContext createPreWarmContext(TezSessionConfiguration sessionConfig
  
      Map<String, LocalResource> combinedResources = new HashMap<String, LocalResource>();
  
@@ -269,10 +269,10 @@ index 2959fcc..914bfaa 100644
    }
  
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezTask.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezTask.java
-index 949bcfb..4e08750 100644
+index 951e918..93793d6 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezTask.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezTask.java
-@@ -301,7 +301,8 @@ DAGClient submit(JobConf conf, DAG dag, Path scratchDir,
+@@ -305,7 +305,8 @@ DAGClient submit(JobConf conf, DAG dag, Path scratchDir,
  
      try {
        // ready to start execution on the cluster
@@ -282,7 +282,7 @@ index 949bcfb..4e08750 100644
      } catch (SessionNotRunning nr) {
        console.printInfo("Tez session was closed. Reopening...");
  
-@@ -309,7 +310,7 @@ DAGClient submit(JobConf conf, DAG dag, Path scratchDir,
+@@ -313,7 +314,7 @@ DAGClient submit(JobConf conf, DAG dag, Path scratchDir,
        TezSessionPoolManager.getInstance().closeAndOpen(sessionState, this.conf);
        console.printInfo("Session re-established.");
  
@@ -292,10 +292,10 @@ index 949bcfb..4e08750 100644
  
      perfLogger.PerfLogEnd(CLASS_NAME, PerfLogger.TEZ_SUBMIT_DAG);
 diff --git ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestTezTask.java ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestTezTask.java
-index 43125f7..57532af 100644
+index 0835bde..1de176e 100644
 --- ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestTezTask.java
 +++ ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestTezTask.java
-@@ -53,7 +53,7 @@
+@@ -54,7 +54,7 @@
  import org.apache.hadoop.mapred.JobConf;
  import org.apache.hadoop.yarn.api.records.LocalResource;
  import org.apache.hadoop.yarn.api.records.Resource;
@@ -304,7 +304,7 @@ index 43125f7..57532af 100644
  import org.apache.tez.dag.api.DAG;
  import org.apache.tez.dag.api.Edge;
  import org.apache.tez.dag.api.EdgeProperty;
-@@ -74,7 +74,7 @@
+@@ -75,7 +75,7 @@
    ReduceWork[] rws;
    TezWork work;
    TezTask task;
@@ -313,10 +313,10 @@ index 43125f7..57532af 100644
    TezSessionState sessionState;
    JobConf conf;
    LocalResource appLr;
-@@ -156,10 +156,10 @@ public Edge answer(InvocationOnMock invocation) throws Throwable {
-     conf = new JobConf();
+@@ -158,10 +158,10 @@ public Edge answer(InvocationOnMock invocation) throws Throwable {
      appLr = mock(LocalResource.class);
  
+     SessionState.start(new HiveConf());
 -    session = mock(TezSession.class);
 +    session = mock(TezClient.class);
      sessionState = mock(TezSessionState.class);
@@ -326,7 +326,7 @@ index 43125f7..57532af 100644
        .thenThrow(new SessionNotRunning(""))
        .thenReturn(mock(DAGClient.class));
    }
-@@ -206,7 +206,7 @@ public void testSubmit() throws Exception {
+@@ -209,7 +209,7 @@ public void testSubmit() throws Exception {
      // validate close/reopen
      verify(sessionState, times(1)).open(any(HiveConf.class));
      verify(sessionState, times(1)).close(eq(false));  // now uses pool after HIVE-7043
