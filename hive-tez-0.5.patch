@@ -1,5 +1,5 @@
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionEdge.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionEdge.java
-index 74c5429..2e036b9 100644
+index 74c5429..397cd81 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionEdge.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionEdge.java
 @@ -33,36 +33,36 @@
@@ -46,7 +46,7 @@ index 74c5429..2e036b9 100644
      byte[] payload = context.getUserPayload();
      LOG.info("Initializing the edge, payload: " + payload);
      if (payload == null) {
-@@ -91,10 +91,10 @@ public void routeDataMovementEventToDestination(DataMovementEvent event,
+@@ -91,16 +91,16 @@ public void routeDataMovementEventToDestination(DataMovementEvent event,
    }
  
    @Override
@@ -58,6 +58,13 @@ index 74c5429..2e036b9 100644
 -    addAllDestinationTaskIndices(numDestinationTasks, destTaskIndices);
 +    addAllDestinationTaskIndices(context.getDestinationVertexNumTasks(), destTaskIndices);
      mapDestTaskIndices.put(new Integer(sourceTaskIndex), destTaskIndices);
+   }
+ 
+   @Override
+   public int routeInputErrorEventToSource(InputReadErrorEvent event, 
+-      int destinationTaskIndex) {
++      int destinationTaskIndex, int destinationFailedInputIndex) {
+     return event.getIndex();
    }
  
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
