@@ -129,4 +129,8 @@
     <name>tez.simple.history.logging.dir</name>
     <value>${fs.default.name}/tez-history/</value>
   </property>
+  <property>
+    <name>tez.am.session.min.held-containers</name>
+    <value>10</value>
+  </property>
 </configuration>
