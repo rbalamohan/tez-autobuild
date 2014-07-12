@@ -111,7 +111,7 @@ index cecedfb..06cbd6b 100644
      // Set the actual events for the tasks.
      context.addRootInputEvents(inputName, taskEvents);
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
-index e116426..fa1d97d 100644
+index e116426..a9fdc57 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
 @@ -80,7 +80,6 @@
@@ -134,6 +134,50 @@ index e116426..fa1d97d 100644
  import org.apache.tez.dag.api.VertexManagerPluginDescriptor;
  import org.apache.tez.dag.library.vertexmanager.ShuffleVertexManager;
  import org.apache.tez.mapreduce.hadoop.InputSplitInfo;
+@@ -223,7 +222,7 @@ public GroupInputEdge createEdge(VertexGroup group, JobConf wConf,
+ 
+     Class mergeInputClass;
+ 
+-    LOG.info("Creating Edge between " + group.getGroupName() + " and " + w.getVertexName());
++    LOG.info("Creating Edge between " + group.getGroupName() + " and " + w.getName());
+     w.getProcessorDescriptor().setUserPayload(MRHelpers.createUserPayloadFromConf(wConf));
+ 
+     EdgeType edgeType = edgeProp.getEdgeType();
+@@ -487,7 +486,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
+     Map<String, String> environment = new HashMap<String, String>();
+     MRHelpers.updateEnvironmentForMRTasks(conf, environment, true);
+     map.setTaskEnvironment(environment);
+-    map.setJavaOpts(getContainerJavaOpts(conf));
++    map.setTaskLaunchCmdOpts(getContainerJavaOpts(conf));
+ 
+     assert mapWork.getAliasToWork().keySet().size() == 1;
+ 
+@@ -517,7 +516,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
+           localResources);
+     }
+ 
+-    map.setTaskLocalResources(localResources);
++    map.setTaskLocalFiles(localResources);
+     return map;
+   }
+ 
+@@ -565,14 +564,14 @@ private Vertex createVertex(JobConf conf, ReduceWork reduceWork,
+     MRHelpers.updateEnvironmentForMRTasks(conf, environment, false);
+     reducer.setTaskEnvironment(environment);
+ 
+-    reducer.setJavaOpts(getContainerJavaOpts(conf));
++    reducer.setTaskLaunchCmdOpts(getContainerJavaOpts(conf));
+ 
+     Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
+     localResources.put(getBaseName(appJarLr), appJarLr);
+     for (LocalResource lr: additionalLr) {
+       localResources.put(getBaseName(lr), lr);
+     }
+-    reducer.setTaskLocalResources(localResources);
++    reducer.setTaskLocalFiles(localResources);
+ 
+     return reducer;
+   }
 @@ -606,15 +605,13 @@ private LocalResource createLocalResource(FileSystem remoteFs, Path file,
    }
  
@@ -162,10 +206,10 @@ index e116426..fa1d97d 100644
        combinedResources.putAll(localResources);
      }
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HiveSplitGenerator.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HiveSplitGenerator.java
-index dc99702..94b2a20 100644
+index dc99702..91b4182 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HiveSplitGenerator.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HiveSplitGenerator.java
-@@ -44,6 +44,7 @@
+@@ -44,10 +44,12 @@
  import org.apache.tez.mapreduce.protos.MRRuntimeProtos.MRSplitProto;
  import org.apache.tez.mapreduce.protos.MRRuntimeProtos.MRSplitsProto;
  import org.apache.tez.runtime.api.Event;
@@ -173,7 +217,12 @@ index dc99702..94b2a20 100644
  import org.apache.tez.runtime.api.TezRootInputInitializer;
  import org.apache.tez.runtime.api.TezRootInputInitializerContext;
  import org.apache.tez.runtime.api.events.RootInputConfigureVertexTasksEvent;
-@@ -174,9 +175,9 @@ private InputSplitInfoMem generateGroupedSplits(TezRootInputInitializerContext c
+ import org.apache.tez.runtime.api.events.RootInputDataInformationEvent;
++import org.apache.tez.runtime.api.events.RootInputInitializerEvent;
+ 
+ import com.google.common.collect.ArrayListMultimap;
+ import com.google.common.collect.Lists;
+@@ -174,9 +176,9 @@ private InputSplitInfoMem generateGroupedSplits(TezRootInputInitializerContext c
  
      List<Event> events = Lists.newArrayListWithCapacity(inputSplitInfo.getNumTasks() + 1);
  
@@ -186,6 +235,14 @@ index dc99702..94b2a20 100644
      events.add(configureVertexEvent);
  
      if (sendSerializedEvents) {
+@@ -196,4 +198,7 @@ private InputSplitInfoMem generateGroupedSplits(TezRootInputInitializerContext c
+     }
+     return events;
+   }
++
++  public void handleInputInitializerEvent(List<RootInputInitializerEvent> events) throws Exception {
++  }
+ }
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezSessionState.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezSessionState.java
 index 2959fcc..914bfaa 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezSessionState.java
@@ -299,7 +356,7 @@ index 951e918..93793d6 100644
  
      perfLogger.PerfLogEnd(CLASS_NAME, PerfLogger.TEZ_SUBMIT_DAG);
 diff --git ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestTezTask.java ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestTezTask.java
-index 0835bde..1de176e 100644
+index 0835bde..f4bd834 100644
 --- ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestTezTask.java
 +++ ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestTezTask.java
 @@ -54,7 +54,7 @@
@@ -333,6 +390,15 @@ index 0835bde..1de176e 100644
        .thenThrow(new SessionNotRunning(""))
        .thenReturn(mock(DAGClient.class));
    }
+@@ -186,7 +186,7 @@ public void testBuildDag() throws IllegalArgumentException, IOException, Excepti
+       for (BaseWork x: work.getChildren(w)) {
+         boolean found = false;
+         for (Vertex u: outs) {
+-          if (u.getVertexName().equals(x.getName())) {
++          if (u.getName().equals(x.getName())) {
+             found = true;
+             break;
+           }
 @@ -209,7 +209,7 @@ public void testSubmit() throws Exception {
      // validate close/reopen
      verify(sessionState, times(1)).open(any(HiveConf.class));
