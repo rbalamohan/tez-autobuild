@@ -52,7 +52,7 @@
   </property>
   <property>
     <name>hive.server2.enable.doAs</name>
-    <value>false</value>
+    <value>true</value>
   </property>
   <property>
     <name>hive.server2.enable.doAs</name>
