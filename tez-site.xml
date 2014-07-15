@@ -81,7 +81,7 @@
     <value>org.apache.hadoop.io.compress.DefaultCodec</value>
   </property>
   <property>
-    <name>tez.runtime.intermdiate-input.is-compressed</name>
+    <name>tez.runtime.intermediate-input.is-compressed</name>
     <value>true</value>
   </property>
   <property>
