@@ -88,16 +88,6 @@
     <name>tez.runtime.intermediate-input.compress.codec</name>
     <value>org.apache.hadoop.io.compress.DefaultCodec</value>
   </property>
-  <!--  for > tez 0.5 (begin) -->
-  <property>
-    <name>tez.runtime.compress</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>tez.runtime.compress.codec</name>
-    <value>org.apache.hadoop.io.compress.DefaultCodec</value>
-  </property>
-  <!--  for > tez 0.5 (end) -->
   <property>
     <name>tez.task.get-task.sleep.interval-ms.max</name>
     <value>100</value>
@@ -142,5 +132,14 @@
   <property>
     <name>tez.am.session.min.held-containers</name>
     <value>10</value>
+  </property>
+  <!--  for > tez 0.5 -->
+  <property>
+    <name>tez.runtime.compress</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.runtime.compress.codec</name>
+    <value>org.apache.hadoop.io.compress.DefaultCodec</value>
   </property>
 </configuration>
