@@ -59,7 +59,7 @@ mysql:
 	$(OFFLINE) || wget -c http://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.29/mysql-connector-java-5.1.29.jar
 
 tez: git maven protobuf
-	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/incubator-tez.git tez
+	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
 	mvn package install -Pdist -DskipTests -Dhadoop.version=$(HADOOP_VERSION) $$($(OFFLINE) && echo "-o") -P\!hadoop24;
