@@ -2,7 +2,7 @@
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
-TEZ_VERSION=0.5.0-incubating-SNAPSHOT
+TEZ_VERSION=0.5.0-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=0.14.0-SNAPSHOT
 HIVE_BRANCH=trunk
@@ -75,7 +75,7 @@ hive: tez-dist.tar.gz
 	mvn clean package -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat $$($(OFFLINE) && echo "-o");
 
 dist-tez: tez 
-	tar -C tez/tez-dist/target/tez-*full/tez-*full -czvf tez-dist.tar.gz .
+	cp tez/tez-dist/target/tez-$(TEZ_VERSION).tar.gz tez-dist.tar.gz
 
 dist-hive: mysql hive
 	cp -t hive/packaging/target/apache-hive*/apache-hive*/lib/ mysql*.jar
