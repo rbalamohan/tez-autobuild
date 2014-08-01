@@ -12,13 +12,77 @@ index b3216e1..157cb0d 100644
      <snappy.version>0.2</snappy.version>
      <wadl-resourcedoc-doclet.version>1.4</wadl-resourcedoc-doclet.version>
 diff --git ql/pom.xml ql/pom.xml
-index 0729d47..a5823ff 100644
+index 0729d47..187e062 100644
 --- ql/pom.xml
 +++ ql/pom.xml
-@@ -297,6 +297,70 @@
+@@ -297,6 +297,134 @@
      </dependency>
      <dependency>
        <groupId>org.apache.tez</groupId>
++      <artifactId>tez-runtime-internals</artifactId>
++      <version>${tez.version}</version>
++      <optional>true</optional>
++      <exclusions>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-core</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-hdfs</artifactId>
++        </exclusion>
++       <exclusion>
++         <groupId>org.apache.hadoop</groupId>
++         <artifactId>hadoop-yarn-client</artifactId>
++       </exclusion>
++      </exclusions>
++    </dependency>
++    <dependency>
++      <groupId>org.apache.tez</groupId>
++      <artifactId>tez-runtime-internals</artifactId>
++      <version>${tez.version}</version>
++      <optional>true</optional>
++      <exclusions>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-core</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-hdfs</artifactId>
++        </exclusion>
++       <exclusion>
++         <groupId>org.apache.hadoop</groupId>
++         <artifactId>hadoop-yarn-client</artifactId>
++       </exclusion>
++      </exclusions>
++    </dependency>
++    <dependency>
++      <groupId>org.apache.tez</groupId>
 +      <artifactId>tez-runtime-internals</artifactId>
 +      <version>${tez.version}</version>
 +      <optional>true</optional>
@@ -87,50 +151,49 @@ index 0729d47..a5823ff 100644
        <version>${tez.version}</version>
        <optional>true</optional>
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionEdge.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionEdge.java
-index 74c5429..fc35756 100644
+index 74c5429..20861cc 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionEdge.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionEdge.java
 @@ -33,36 +33,38 @@
-
+ 
  import com.google.common.collect.Multimap;
-
+ 
 -public class CustomPartitionEdge implements EdgeManager {
 +public class CustomPartitionEdge extends EdgeManager {
-
+ 
    private static final Log LOG = LogFactory.getLog(CustomPartitionEdge.class.getName());
-
+ 
    CustomEdgeConfiguration conf = null;
 +  EdgeManagerContext context = null;
-
--  // used by the framework at runtime. initialize is the real initializer at runtime
--  public CustomPartitionEdge() {
+ 
+   // used by the framework at runtime. initialize is the real initializer at runtime
+-  public CustomPartitionEdge() {  
 +  public CustomPartitionEdge(EdgeManagerContext context) {
 +    super(context);
    }
-
-+  // used by the framework at runtime. initialize is the real initializer at runtime
+ 
 +
    @Override
--  public int getNumDestinationTaskPhysicalInputs(int numSourceTasks,
+-  public int getNumDestinationTaskPhysicalInputs(int numSourceTasks, 
 -      int destinationTaskIndex) {
 +  public int getNumDestinationTaskPhysicalInputs(int numSourceTasks) {
      return numSourceTasks;
    }
-
+ 
    @Override
--  public int getNumSourceTaskPhysicalOutputs(int numDestinationTasks,
+-  public int getNumSourceTaskPhysicalOutputs(int numDestinationTasks, 
 -      int sourceTaskIndex) {
 +  public int getNumSourceTaskPhysicalOutputs(int numDestinationTasks) {
      return conf.getNumBuckets();
    }
-
+ 
    @Override
 -  public int getNumDestinationConsumerTasks(int sourceTaskIndex, int numDestinationTasks) {
 -    return numDestinationTasks;
 +  public int getNumDestinationConsumerTasks(int sourceTaskIndex) {
 +    return sourceTaskIndex;
    }
-
+ 
    // called at runtime to initialize the custom edge.
    @Override
 -  public void initialize(EdgeManagerContext context) {
@@ -141,9 +204,9 @@ index 74c5429..fc35756 100644
      if (payload == null) {
 @@ -91,16 +93,16 @@ public void routeDataMovementEventToDestination(DataMovementEvent event,
    }
-
+ 
    @Override
--  public void routeInputSourceTaskFailedEventToDestination(int sourceTaskIndex,
+-  public void routeInputSourceTaskFailedEventToDestination(int sourceTaskIndex, 
 -      int numDestinationTasks, Map<Integer, List<Integer>> mapDestTaskIndices) {
 +  public void routeInputSourceTaskFailedEventToDestination(int
 +      sourceTaskIndex, Map<Integer, List<Integer>> mapDestTaskIndices) {
@@ -152,14 +215,14 @@ index 74c5429..fc35756 100644
 +    addAllDestinationTaskIndices(context.getDestinationVertexNumTasks(), destTaskIndices);
      mapDestTaskIndices.put(new Integer(sourceTaskIndex), destTaskIndices);
    }
-
+ 
    @Override
-   public int routeInputErrorEventToSource(InputReadErrorEvent event,
+   public int routeInputErrorEventToSource(InputReadErrorEvent event, 
 -      int destinationTaskIndex) {
-+      int destinationTaskIndex, int destinationFailedInputIndex) {
++          int destinationTaskIndex, int destinationFailedInputIndex) {
      return event.getIndex();
    }
-
+ 
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
 index cecedfb..286ee9e 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
@@ -170,18 +233,18 @@ index cecedfb..286ee9e 100644
   */
 -public class CustomPartitionVertex implements VertexManagerPlugin {
 +public class CustomPartitionVertex extends VertexManagerPlugin {
-
+ 
    private static final Log LOG = LogFactory.getLog(CustomPartitionVertex.class.getName());
-
+ 
 @@ -77,12 +77,13 @@
    private boolean rootVertexInitialized = false;
    private final SplitGrouper grouper = new SplitGrouper();
-
+ 
 -  public CustomPartitionVertex() {
 +  public CustomPartitionVertex(VertexManagerPluginContext context) {
 +    super(context);
    }
-
+ 
    @Override
 -  public void initialize(VertexManagerPluginContext context) {
 -    this.context = context;
@@ -204,7 +267,7 @@ index cecedfb..286ee9e 100644
    }
 @@ -195,7 +196,7 @@ public void onRootVertexInitialized(String inputName, InputDescriptor inputDescr
          getBucketSplitMapForPath(pathFileSplitsMap);
-
+ 
      try {
 -      int totalResource = context.getTotalAVailableResource().getMemory();
 +      int totalResource = context.getTotalAvailableResource().getMemory();
@@ -217,11 +280,11 @@ index cecedfb..286ee9e 100644
          new VertexLocationHint(grouper.createTaskLocationHints(finalSplits
 -            .toArray(new InputSplit[finalSplits.size()]))), emMap);
 +            .toArray(new InputSplit[finalSplits.size()]))), emMap, null);
-
+ 
      // Set the actual events for the tasks.
      context.addRootInputEvents(inputName, taskEvents);
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
-index e116426..6219ae4 100644
+index e116426..c0b5962 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
 @@ -80,37 +80,32 @@
@@ -265,25 +328,25 @@ index e116426..6219ae4 100644
 -import org.apache.tez.runtime.library.output.OnFileSortedOutput;
 -import org.apache.tez.runtime.library.output.OnFileUnorderedKVOutput;
 -import org.apache.tez.runtime.library.output.OnFileUnorderedPartitionedKVOutput;
-
+ 
  import com.google.common.base.Function;
  import com.google.common.collect.Iterators;
 @@ -162,6 +157,7 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
      JobConf conf = new JobConf(baseConf);
-
+ 
      if (mapWork.getNumMapTasks() != null) {
 +      // Is this required ?
        conf.setInt(MRJobConfig.NUM_MAPS, mapWork.getNumMapTasks().intValue());
      }
-
+ 
 @@ -200,6 +196,7 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
        inpFormat = CombineHiveInputFormat.class.getName();
      }
-
+ 
 +    // Is this required ?
      conf.set("mapred.mapper.class", ExecMapper.class.getName());
      conf.set("mapred.input.format.class", inpFormat);
-
+ 
 @@ -211,20 +208,19 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
     * Edge between them.
     *
@@ -299,24 +362,24 @@ index e116426..6219ae4 100644
 +  public GroupInputEdge createEdge(VertexGroup group, JobConf vConf,
        Vertex w, TezEdgeProperty edgeProp)
      throws IOException {
-
+ 
      Class mergeInputClass;
-
+ 
 -    LOG.info("Creating Edge between " + group.getGroupName() + " and " + w.getVertexName());
 -    w.getProcessorDescriptor().setUserPayload(MRHelpers.createUserPayloadFromConf(wConf));
 +    LOG.info("Creating Edge between " + group.getGroupName() + " and " + w.getName());
-
+ 
      EdgeType edgeType = edgeProp.getEdgeType();
      switch (edgeType) {
 @@ -255,40 +251,23 @@ public GroupInputEdge createEdge(VertexGroup group, JobConf wConf,
        break;
      }
-
+ 
 -    return new GroupInputEdge(group, w, createEdgeProperty(edgeProp),
 +    return new GroupInputEdge(group, w, createEdgeProperty(edgeProp, vConf),
          new InputDescriptor(mergeInputClass.getName()));
    }
-
+ 
    /**
 -   * Given two vertices a, b update their configurations to be used in an Edge a-b
 -   */
@@ -347,7 +410,7 @@ index e116426..6219ae4 100644
 +  public Edge createEdge(JobConf vConf, Vertex v, Vertex w,
        TezEdgeProperty edgeProp)
      throws IOException {
-
+ 
 -    updateConfigurationForEdge(vConf, v, wConf, w);
 -
      switch(edgeProp.getEdgeType()) {
@@ -356,11 +419,11 @@ index e116426..6219ae4 100644
 @@ -307,31 +286,33 @@ public Edge createEdge(JobConf vConf, Vertex v, JobConf wConf, Vertex w,
        // nothing
      }
-
+ 
 -    return new Edge(v, w, createEdgeProperty(edgeProp));
 +    return new Edge(v, w, createEdgeProperty(edgeProp, vConf));
    }
-
+ 
    /*
     * Helper function to create an edge property from an edge type.
     */
@@ -376,7 +439,7 @@ index e116426..6219ae4 100644
 +    String valClass = conf.get(TezRuntimeConfiguration.TEZ_RUNTIME_VALUE_CLASS);
 +    String partitionerClassName = conf.get("mapred.partitioner.class");
 +    Configuration partitionerConf;
-
+ 
 -    EdgeProperty edgeProperty = null;
      EdgeType edgeType = edgeProp.getEdgeType();
      switch (edgeType) {
@@ -440,7 +503,7 @@ index e116426..6219ae4 100644
 +      return et4Conf.createDefaultEdgeProperty();
      }
 +  }
-
+ 
 -    if (edgeProperty == null) {
 -      edgeProperty =
 -        new EdgeProperty(dataMovementType,
@@ -469,27 +532,27 @@ index e116426..6219ae4 100644
 -    return edgeProperty;
 +    return partitionerConf;
    }
-
+ 
    /*
 @@ -423,9 +409,6 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
      // create the directories FileSinkOperators need
      Utilities.createTmpDirs(conf, mapWork);
-
+ 
 -    // Tez ask us to call this even if there's no preceding vertex
 -    MultiStageMRConfToTezTranslator.translateVertexConfToTez(conf, null);
 -
      // finally create the vertex
      Vertex map = null;
-
+ 
 @@ -487,7 +470,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
      Map<String, String> environment = new HashMap<String, String>();
      MRHelpers.updateEnvironmentForMRTasks(conf, environment, true);
      map.setTaskEnvironment(environment);
 -    map.setJavaOpts(getContainerJavaOpts(conf));
 +    map.setTaskLaunchCmdOpts(getContainerJavaOpts(conf));
-
+ 
      assert mapWork.getAliasToWork().keySet().size() == 1;
-
+ 
 @@ -500,9 +483,9 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
      } else {
        mrInput = MRHelpers.createMRInputPayload(serializedConf, null);
@@ -499,30 +562,30 @@ index e116426..6219ae4 100644
          new InputDescriptor(MRInputLegacy.class.getName()).
 -        setUserPayload(mrInput), amSplitGeneratorClass);
 +        setUserPayload(mrInput), new InputInitializerDescriptor(amSplitGeneratorClass.getName()).setUserPayload(mrInput));
-
+ 
      Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
      localResources.put(getBaseName(appJarLr), appJarLr);
 @@ -517,7 +500,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
            localResources);
      }
-
+ 
 -    map.setTaskLocalResources(localResources);
 +    map.setTaskLocalFiles(localResources);
      return map;
    }
-
+ 
 @@ -527,6 +510,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
    private JobConf initializeVertexConf(JobConf baseConf, ReduceWork reduceWork) {
      JobConf conf = new JobConf(baseConf);
-
+ 
 +    // Is this required ?
      conf.set("mapred.reducer.class", ExecReducer.class.getName());
-
+ 
      boolean useSpeculativeExecReducers = HiveConf.getBoolVar(conf,
 @@ -550,9 +534,6 @@ private Vertex createVertex(JobConf conf, ReduceWork reduceWork,
      // create the directories FileSinkOperators need
      Utilities.createTmpDirs(conf, reduceWork);
-
+ 
 -    // Call once here, will be updated when we find edges
 -    MultiStageMRConfToTezTranslator.translateVertexConfToTez(conf, null);
 -
@@ -532,10 +595,10 @@ index e116426..6219ae4 100644
 @@ -565,14 +546,14 @@ private Vertex createVertex(JobConf conf, ReduceWork reduceWork,
      MRHelpers.updateEnvironmentForMRTasks(conf, environment, false);
      reducer.setTaskEnvironment(environment);
-
+ 
 -    reducer.setJavaOpts(getContainerJavaOpts(conf));
 +    reducer.setTaskLaunchCmdOpts(getContainerJavaOpts(conf));
-
+ 
      Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
      localResources.put(getBaseName(appJarLr), appJarLr);
      for (LocalResource lr: additionalLr) {
@@ -543,12 +606,12 @@ index e116426..6219ae4 100644
      }
 -    reducer.setTaskLocalResources(localResources);
 +    reducer.setTaskLocalFiles(localResources);
-
+ 
      return reducer;
    }
 @@ -606,15 +587,13 @@ private LocalResource createLocalResource(FileSystem remoteFs, Path file,
    }
-
+ 
    /**
 -   * @param sessionConfig session configuration
     * @param numContainers number of containers to pre-warm
@@ -562,19 +625,19 @@ index e116426..6219ae4 100644
 +  public PreWarmContext createPreWarmContext(TezConfiguration conf,
 +      int numContainers, Map<String, LocalResource> localResources) throws
 +      IOException, TezException {
-
+ 
      ProcessorDescriptor prewarmProcDescriptor = new ProcessorDescriptor(HivePreWarmProcessor.class.getName());
      prewarmProcDescriptor.setUserPayload(MRHelpers.createUserPayloadFromConf(conf));
 @@ -624,7 +603,6 @@ public PreWarmContext createPreWarmContext(TezSessionConfiguration sessionConfig
-
+ 
      Map<String, LocalResource> combinedResources = new HashMap<String, LocalResource>();
-
+ 
 -    combinedResources.putAll(sessionConfig.getSessionResources());
      if (localResources != null) {
        combinedResources.putAll(localResources);
      }
 @@ -961,9 +939,9 @@ public Vertex createVertex(JobConf conf, BaseWork work,
-
+ 
      // final vertices need to have at least one output
      if (!hasChildren) {
 -      v.addOutput("out_"+work.getName(),
@@ -583,7 +646,7 @@ index e116426..6219ae4 100644
 -          .setUserPayload(MRHelpers.createUserPayloadFromConf(conf)));
 +          .setUserPayload(MRHelpers.createUserPayloadFromConf(conf)), null);
      }
-
+ 
      return v;
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HivePreWarmProcessor.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HivePreWarmProcessor.java
 index c756e72..7a42b93 100644
@@ -603,13 +666,13 @@ index c756e72..7a42b93 100644
   */
 -public class HivePreWarmProcessor implements LogicalIOProcessor {
 +public class HivePreWarmProcessor extends AbstractLogicalIOProcessor {
-
+ 
    private static boolean prewarmed = false;
-
+ 
 @@ -56,9 +57,13 @@
-
+ 
    private Configuration conf;
-
+ 
 +  public HivePreWarmProcessor(TezProcessorContext context) {
 +    super(context);
 +  }
@@ -636,7 +699,7 @@ index dc99702..1c3cabb 100644
  import org.apache.tez.runtime.api.events.RootInputConfigureVertexTasksEvent;
  import org.apache.tez.runtime.api.events.RootInputDataInformationEvent;
 +import org.apache.tez.runtime.api.events.RootInputInitializerEvent;
-
+ 
  import com.google.common.collect.ArrayListMultimap;
  import com.google.common.collect.Lists;
 @@ -59,14 +61,19 @@
@@ -645,11 +708,11 @@ index dc99702..1c3cabb 100644
   */
 -public class HiveSplitGenerator implements TezRootInputInitializer {
 +public class HiveSplitGenerator extends TezRootInputInitializer {
-
+ 
    private static final Log LOG = LogFactory.getLog(HiveSplitGenerator.class);
-
+ 
    private final SplitGrouper grouper = new SplitGrouper();
-
+ 
 +  public HiveSplitGenerator(TezRootInputInitializerContext initializerContext) {
 +    super(initializerContext);
 +  }
@@ -658,20 +721,20 @@ index dc99702..1c3cabb 100644
 -  public List<Event> initialize(TezRootInputInitializerContext rootInputContext) throws Exception {
 +  public List<Event> initialize() throws Exception {
 +    TezRootInputInitializerContext rootInputContext = getContext();
-
+ 
      MRInputUserPayloadProto userPayloadProto =
          MRHelpers.parseMRInputPayload(rootInputContext.getUserPayload());
 @@ -170,13 +177,16 @@ private InputSplitInfoMem generateGroupedSplits(TezRootInputInitializerContext c
      return new InputSplitInfoMem(flatSplits, locationHints, flatSplits.length, null, jobConf);
    }
-
+ 
 +  public void handleInputInitializerEvent(List<RootInputInitializerEvent> events) throws Exception {
 +  }
 +
    private List<Event> createEventList(boolean sendSerializedEvents, InputSplitInfoMem inputSplitInfo) {
-
+ 
      List<Event> events = Lists.newArrayListWithCapacity(inputSplitInfo.getNumTasks() + 1);
-
+ 
 -    RootInputConfigureVertexTasksEvent configureVertexEvent =
 -        new RootInputConfigureVertexTasksEvent(inputSplitInfo.getNumTasks(),
 -            inputSplitInfo.getTaskLocationHints());
@@ -679,7 +742,7 @@ index dc99702..1c3cabb 100644
 +        RootInputConfigureVertexTasksEvent(inputSplitInfo.getNumTasks(),
 +        inputSplitInfo.getTaskLocationHints(), RootInputSpecUpdate.getDefaultSinglePhysicalInputSpecUpdate());
      events.add(configureVertexEvent);
-
+ 
      if (sendSerializedEvents) {
 @@ -196,4 +206,5 @@ private InputSplitInfoMem generateGroupedSplits(TezRootInputInitializerContext c
      }
@@ -694,7 +757,7 @@ index 31f3bcd..e388a0d 100644
 @@ -17,11 +17,15 @@
   */
  package org.apache.hadoop.hive.ql.exec.tez;
-
+ 
 +import org.apache.tez.runtime.api.TezProcessorContext;
 +
  /**
@@ -720,16 +783,16 @@ index 318ba8e..d95530b 100644
 -import org.apache.tez.runtime.common.objectregistry.ObjectRegistryFactory;
 -
 +import org.apache.tez.runtime.common.objectregistry.ObjectRegistryImpl;
-
+ 
  /**
   * ObjectCache. Tez implementation based on the tez object registry.
 @@ -32,7 +31,7 @@
  public class ObjectCache implements org.apache.hadoop.hive.ql.exec.ObjectCache {
-
+ 
    private static final Log LOG = LogFactory.getLog(ObjectCache.class.getName());
 -  private final ObjectRegistry registry = ObjectRegistryFactory.getObjectRegistry();
 +  private final ObjectRegistry registry = new ObjectRegistryImpl();
-
+ 
    @Override
    public void cache(String key, Object value) {
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/ReduceTezProcessor.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/ReduceTezProcessor.java
@@ -739,7 +802,7 @@ index 7152aae..c79444e 100644
 @@ -17,11 +17,15 @@
   */
  package org.apache.hadoop.hive.ql.exec.tez;
-
+ 
 +import org.apache.tez.runtime.api.TezProcessorContext;
 +
  /**
@@ -772,29 +835,29 @@ index c2ba782..722f7aa 100644
   */
 -public class TezProcessor implements LogicalIOProcessor {
 +public class TezProcessor extends AbstractLogicalIOProcessor {
-
-
-
+ 
+ 
+ 
    private static final Log LOG = LogFactory.getLog(TezProcessor.class);
 -  private boolean isMap = false;
 +  protected boolean isMap = false;
-
+ 
    RecordProcessor rproc = null;
-
+ 
 @@ -69,8 +70,8 @@
      jobIdFormat.setMinimumIntegerDigits(4);
    }
-
+ 
 -  public TezProcessor(boolean isMap) {
 -    this.isMap = isMap;
 +  public TezProcessor(TezProcessorContext context) {
 +    super(context);
    }
-
+ 
    @Override
 @@ -86,8 +87,8 @@ public void handleEvents(List<Event> arg0) {
    }
-
+ 
    @Override
 -  public void initialize(TezProcessorContext processorContext)
 -      throws IOException {
@@ -829,9 +892,9 @@ index 2959fcc..c9484e8 100644
    private DagUtils utils;
    private String queueName;
 @@ -153,11 +151,6 @@ public void open(HiveConf conf, String[] additionalFiles)
-
+ 
      refreshLocalResourcesFromConf(conf);
-
+ 
 -    // generate basic tez config
 -    TezConfiguration tezConfig = new TezConfiguration(conf);
 -
@@ -843,7 +906,7 @@ index 2959fcc..c9484e8 100644
 @@ -173,13 +166,12 @@ public void open(HiveConf conf, String[] additionalFiles)
      Map<String, String> amEnv = new HashMap<String, String>();
      MRHelpers.updateEnvironmentForMRAM(conf, amEnv);
-
+ 
 -    AMConfiguration amConfig = new AMConfiguration(amEnv, commonLocalResources, tezConfig, null);
 -
 -    // configuration for the session
@@ -856,7 +919,7 @@ index 2959fcc..c9484e8 100644
 +    tezConfig.set(TezConfiguration.TEZ_AM_STAGING_DIR, tezScratchDir.toUri().toString());
 +    session = new TezClient("HIVE-" + sessionId, tezConfig, true,
 +        commonLocalResources, null);
-
+ 
      LOG.info("Opening new Tez Session (id: " + sessionId
          + ", scratch dir: " + tezScratchDir + ")");
 @@ -190,7 +182,8 @@ public void open(HiveConf conf, String[] additionalFiles)
@@ -885,24 +948,24 @@ index 2959fcc..c9484e8 100644
 -    conf.set("mapreduce.tez.session.tokill-application-id", session.getApplicationId().toString());
 +    conf.set("mapreduce.tez.session.tokill-application-id",
 +        session.getAppMasterApplicationId().toString());
-
+ 
      openSessions.add(this);
    }
 @@ -280,7 +278,7 @@ public String getSessionId() {
      return sessionId;
    }
-
+ 
 -  public TezSession getSession() {
 +  public TezClient getSession() {
      return session;
    }
-
+ 
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezTask.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezTask.java
 index 951e918..e1f5630 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezTask.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/TezTask.java
 @@ -29,7 +29,6 @@
-
+ 
  import org.apache.hadoop.fs.FileSystem;
  import org.apache.hadoop.fs.Path;
 -import org.apache.hadoop.hive.conf.HiveConf;
@@ -912,7 +975,7 @@ index 951e918..e1f5630 100644
 @@ -247,16 +246,14 @@ DAG build(JobConf conf, TezWork work, Path scratchDir,
          }
          VertexGroup group = dag.createVertexGroup(w.getName(), vertexArray);
-
+ 
 +        // For a vertex group, all Outputs use the same Key-class, Val-class and partitioner.
 +        // Pick any one source vertex to figure out the Edge configuration.
 +        JobConf parentConf = workToConf.get(unionWorkItems.get(0));
@@ -929,19 +992,19 @@ index 951e918..e1f5630 100644
 -          GroupInputEdge e = utils.createEdge(group, workToConf.get(v),
 +          GroupInputEdge e = utils.createEdge(group, parentConf,
                 workToVertex.get(v), work.getEdgeProperty(w, v));
-
+ 
            dag.addEdge(e);
 @@ -279,7 +276,7 @@ DAG build(JobConf conf, TezWork work, Path scratchDir,
-
+ 
            TezEdgeProperty edgeProp = work.getEdgeProperty(w, v);
-
+ 
 -          e = utils.createEdge(wxConf, wx, workToConf.get(v), workToVertex.get(v), edgeProp);
 +          e = utils.createEdge(wxConf, wx, workToVertex.get(v), edgeProp);
            dag.addEdge(e);
          }
        }
 @@ -305,7 +302,8 @@ DAGClient submit(JobConf conf, DAG dag, Path scratchDir,
-
+ 
      try {
        // ready to start execution on the cluster
 -      dagClient = sessionState.getSession().submitDAG(dag, resourceMap);
@@ -949,44 +1012,44 @@ index 951e918..e1f5630 100644
 +      dagClient = sessionState.getSession().submitDAG(dag);
      } catch (SessionNotRunning nr) {
        console.printInfo("Tez session was closed. Reopening...");
-
+ 
 @@ -313,7 +311,7 @@ DAGClient submit(JobConf conf, DAG dag, Path scratchDir,
        TezSessionPoolManager.getInstance().closeAndOpen(sessionState, this.conf);
        console.printInfo("Session re-established.");
-
+ 
 -      dagClient = sessionState.getSession().submitDAG(dag, resourceMap);
 +      dagClient = sessionState.getSession().submitDAG(dag);
      }
-
+ 
      perfLogger.PerfLogEnd(CLASS_NAME, PerfLogger.TEZ_SUBMIT_DAG);
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/TezMergedLogicalInput.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/TezMergedLogicalInput.java
-index cc4477f..ac27559 100644
+index cc4477f..d9139b8 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/TezMergedLogicalInput.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/TezMergedLogicalInput.java
 @@ -18,11 +18,13 @@
  package org.apache.hadoop.hive.ql.exec.tez.tools;
-
+ 
  import java.util.IdentityHashMap;
 +import java.util.List;
  import java.util.Map;
-
+ 
  import org.apache.tez.runtime.api.Input;
  import org.apache.tez.runtime.api.MergedLogicalInput;
  import org.apache.tez.runtime.api.Reader;
 +import org.apache.tez.runtime.api.TezMergedInputContext;
-
+ 
  /**
   * TezMergedLogicalInput is an adapter to make union input look like
 @@ -31,7 +33,11 @@
  public class TezMergedLogicalInput extends MergedLogicalInput {
-
+ 
    private Map<Input, Boolean> readyInputs = new IdentityHashMap<Input, Boolean>();
--
+-  
 +
 +  public TezMergedLogicalInput(TezMergedInputContext context, List<Input> inputs) {
 +    super(context, inputs);
 +  }
-+
++ 
    @Override
    public Reader getReader() throws Exception {
      return new InputMerger(getInputs());
@@ -1015,11 +1078,11 @@ index 0835bde..84c031c 100644
 @@ -102,13 +102,13 @@ public Vertex answer(InvocationOnMock invocation) throws Throwable {
            }
          });
-
+ 
 -    when(utils.createEdge(any(JobConf.class), any(Vertex.class), any(JobConf.class),
 +    when(utils.createEdge(any(JobConf.class), any(Vertex.class),
          any(Vertex.class), any(TezEdgeProperty.class))).thenAnswer(new Answer<Edge>() {
-
+ 
            @Override
            public Edge answer(InvocationOnMock invocation) throws Throwable {
              Object[] args = invocation.getArguments();
@@ -1027,10 +1090,10 @@ index 0835bde..84c031c 100644
 +            return new Edge((Vertex)args[1], (Vertex)args[2], mock(EdgeProperty.class));
            }
          });
-
+ 
 @@ -158,10 +158,10 @@ public Edge answer(InvocationOnMock invocation) throws Throwable {
      appLr = mock(LocalResource.class);
-
+ 
      SessionState.start(new HiveConf());
 -    session = mock(TezSession.class);
 +    session = mock(TezClient.class);
@@ -1057,6 +1120,5 @@ index 0835bde..84c031c 100644
 -    verify(session, times(2)).submitDAG(any(DAG.class), any(Map.class));
 +    verify(session, times(2)).submitDAG(any(DAG.class));
    }
-
+ 
    @Test
-
