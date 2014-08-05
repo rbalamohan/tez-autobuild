@@ -917,6 +917,19 @@ index 951e918..e1f5630 100644
      }
  
      perfLogger.PerfLogEnd(CLASS_NAME, PerfLogger.TEZ_SUBMIT_DAG);
+diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/InputMerger.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/InputMerger.java
+index 726e122..a977319 100644
+--- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/InputMerger.java
++++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/InputMerger.java
+@@ -37,7 +37,7 @@
+  * Uses a priority queue to pick the KeyValuesReader of the input that is next in
+  * sort order.
+  */
+-public class InputMerger implements KeyValuesReader {
++public class InputMerger extends KeyValuesReader {
+ 
+   public static final Log l4j = LogFactory.getLog(ReduceRecordProcessor.class);
+   private PriorityQueue<KeyValuesReader> pQueue = null;
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/TezMergedLogicalInput.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/TezMergedLogicalInput.java
 index cc4477f..d9139b8 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/tools/TezMergedLogicalInput.java
