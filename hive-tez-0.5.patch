@@ -1,11 +1,120 @@
+diff --git pom.xml pom.xml
+index c4ebe12..a4fa0e6 100644
+--- pom.xml
++++ pom.xml
+@@ -146,7 +146,7 @@
+     <stax.version>1.0.1</stax.version>
+     <slf4j.version>1.7.5</slf4j.version>
+     <ST4.version>4.0.4</ST4.version>
+-    <tez.version>0.4.0-incubating</tez.version>
++    <tez.version>0.5.0-SNAPSHOT</tez.version>
+     <tempus-fugit.version>1.1</tempus-fugit.version>
+     <snappy.version>0.2</snappy.version>
+     <wadl-resourcedoc-doclet.version>1.4</wadl-resourcedoc-doclet.version>
 diff --git ql/pom.xml ql/pom.xml
-index 0729d47..c3e0adb 100644
+index 0729d47..187e062 100644
 --- ql/pom.xml
 +++ ql/pom.xml
-@@ -297,6 +297,38 @@
+@@ -297,6 +297,134 @@
      </dependency>
      <dependency>
        <groupId>org.apache.tez</groupId>
++      <artifactId>tez-runtime-internals</artifactId>
++      <version>${tez.version}</version>
++      <optional>true</optional>
++      <exclusions>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-core</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-hdfs</artifactId>
++        </exclusion>
++       <exclusion>
++         <groupId>org.apache.hadoop</groupId>
++         <artifactId>hadoop-yarn-client</artifactId>
++       </exclusion>
++      </exclusions>
++    </dependency>
++    <dependency>
++      <groupId>org.apache.tez</groupId>
++      <artifactId>tez-runtime-internals</artifactId>
++      <version>${tez.version}</version>
++      <optional>true</optional>
++      <exclusions>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-core</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-hdfs</artifactId>
++        </exclusion>
++       <exclusion>
++         <groupId>org.apache.hadoop</groupId>
++         <artifactId>hadoop-yarn-client</artifactId>
++       </exclusion>
++      </exclusions>
++    </dependency>
++    <dependency>
++      <groupId>org.apache.tez</groupId>
++      <artifactId>tez-runtime-internals</artifactId>
++      <version>${tez.version}</version>
++      <optional>true</optional>
++      <exclusions>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-core</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-mapreduce-client-common</artifactId>
++        </exclusion>
++        <exclusion>
++          <groupId>org.apache.hadoop</groupId>
++          <artifactId>hadoop-hdfs</artifactId>
++        </exclusion>
++       <exclusion>
++         <groupId>org.apache.hadoop</groupId>
++         <artifactId>hadoop-yarn-client</artifactId>
++       </exclusion>
++      </exclusions>
++    </dependency>
++    <dependency>
++      <groupId>org.apache.tez</groupId>
 +      <artifactId>tez-runtime-internals</artifactId>
 +      <version>${tez.version}</version>
 +      <optional>true</optional>
@@ -175,15 +284,17 @@ index cecedfb..286ee9e 100644
      // Set the actual events for the tasks.
      context.addRootInputEvents(inputName, taskEvents);
 diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
-index e116426..fb4f0b5 100644
+index e116426..6006748 100644
 --- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
 +++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/DagUtils.java
-@@ -80,18 +80,16 @@
+@@ -80,18 +80,18 @@
  import org.apache.hadoop.yarn.util.ConverterUtils;
  import org.apache.hadoop.yarn.util.Records;
  import org.apache.tez.client.PreWarmContext;
 -import org.apache.tez.client.TezSessionConfiguration;
  import org.apache.tez.dag.api.DAG;
++import org.apache.tez.dag.api.DataSinkDescriptor;
++import org.apache.tez.dag.api.DataSourceDescriptor;
  import org.apache.tez.dag.api.Edge;
  import org.apache.tez.dag.api.EdgeManagerDescriptor;
  import org.apache.tez.dag.api.EdgeProperty;
@@ -199,7 +310,7 @@ index e116426..fb4f0b5 100644
  import org.apache.tez.dag.api.TezException;
  import org.apache.tez.dag.api.Vertex;
  import org.apache.tez.dag.api.VertexGroup;
-@@ -101,16 +99,14 @@
+@@ -101,16 +101,14 @@
  import org.apache.tez.mapreduce.hadoop.InputSplitInfo;
  import org.apache.tez.mapreduce.hadoop.MRHelpers;
  import org.apache.tez.mapreduce.hadoop.MRJobConfig;
@@ -220,7 +331,7 @@ index e116426..fb4f0b5 100644
  
  import com.google.common.base.Function;
  import com.google.common.collect.Iterators;
-@@ -162,6 +158,7 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
+@@ -162,6 +160,7 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
      JobConf conf = new JobConf(baseConf);
  
      if (mapWork.getNumMapTasks() != null) {
@@ -228,7 +339,7 @@ index e116426..fb4f0b5 100644
        conf.setInt(MRJobConfig.NUM_MAPS, mapWork.getNumMapTasks().intValue());
      }
  
-@@ -200,6 +197,7 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
+@@ -200,6 +199,7 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
        inpFormat = CombineHiveInputFormat.class.getName();
      }
  
@@ -236,7 +347,7 @@ index e116426..fb4f0b5 100644
      conf.set("mapred.mapper.class", ExecMapper.class.getName());
      conf.set("mapred.input.format.class", inpFormat);
  
-@@ -211,20 +209,19 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
+@@ -211,20 +211,19 @@ private JobConf initializeVertexConf(JobConf baseConf, MapWork mapWork) {
     * Edge between them.
     *
     * @param group The parent VertexGroup
@@ -260,7 +371,7 @@ index e116426..fb4f0b5 100644
  
      EdgeType edgeType = edgeProp.getEdgeType();
      switch (edgeType) {
-@@ -255,40 +252,23 @@ public GroupInputEdge createEdge(VertexGroup group, JobConf wConf,
+@@ -255,40 +254,23 @@ public GroupInputEdge createEdge(VertexGroup group, JobConf wConf,
        break;
      }
  
@@ -305,7 +416,7 @@ index e116426..fb4f0b5 100644
      switch(edgeProp.getEdgeType()) {
      case CUSTOM_EDGE: {
        int numBuckets = edgeProp.getNumBuckets();
-@@ -307,31 +287,33 @@ public Edge createEdge(JobConf vConf, Vertex v, JobConf wConf, Vertex w,
+@@ -307,31 +289,32 @@ public Edge createEdge(JobConf vConf, Vertex v, JobConf wConf, Vertex w,
        // nothing
      }
  
@@ -321,15 +432,15 @@ index e116426..fb4f0b5 100644
 -    DataMovementType dataMovementType;
 -    Class logicalInputClass;
 -    Class logicalOutputClass;
+-
+-    EdgeProperty edgeProperty = null;
 +  private EdgeProperty createEdgeProperty(TezEdgeProperty edgeProp, Configuration conf)
 +      throws IOException {
 +    MRHelpers.translateVertexConfToTez(conf);
 +    String keyClass = conf.get(TezRuntimeConfiguration.TEZ_RUNTIME_KEY_CLASS);
 +    String valClass = conf.get(TezRuntimeConfiguration.TEZ_RUNTIME_VALUE_CLASS);
 +    String partitionerClassName = conf.get("mapred.partitioner.class");
-+    Configuration partitionerConf;
- 
--    EdgeProperty edgeProperty = null;
++    Map<String, String> partitionerConf;
      EdgeType edgeType = edgeProp.getEdgeType();
      switch (edgeType) {
      case BROADCAST_EDGE:
@@ -353,7 +464,7 @@ index e116426..fb4f0b5 100644
        EdgeManagerDescriptor edgeDesc =
            new EdgeManagerDescriptor(CustomPartitionEdge.class.getName());
        CustomEdgeConfiguration edgeConf =
-@@ -340,38 +322,43 @@ private EdgeProperty createEdgeProperty(TezEdgeProperty edgeProp) throws IOExcep
+@@ -340,38 +323,43 @@ private EdgeProperty createEdgeProperty(TezEdgeProperty edgeProp) throws IOExcep
        edgeConf.write(dob);
        byte[] userPayload = dob.getData();
        edgeDesc.setUserPayload(userPayload);
@@ -409,12 +520,12 @@ index e116426..fb4f0b5 100644
 +   *          a base configuration to extract relevant properties
 +   * @return
 +   */
-+  private Configuration createPartitionerConf(String partitionerClassName,
++  private Map<String, String> createPartitionerConf(String partitionerClassName,
 +      Configuration baseConf) {
-+    Configuration partitionerConf = new Configuration(false);
-+    partitionerConf.set("mapred.partitioner.class", partitionerClassName);
++    Map<String, String> partitionerConf = new HashMap<String, String>();
++    partitionerConf.put("mapred.partitioner.class", partitionerClassName);
 +    if (baseConf.get("mapreduce.totalorderpartitioner.path") != null) {
-+      partitionerConf.set("mapreduce.totalorderpartitioner.path",
++      partitionerConf.put("mapreduce.totalorderpartitioner.path",
 +      baseConf.get("mapreduce.totalorderpartitioner.path"));
      }
 -
@@ -423,7 +534,7 @@ index e116426..fb4f0b5 100644
    }
  
    /*
-@@ -423,9 +410,6 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
+@@ -423,9 +411,6 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
      // create the directories FileSinkOperators need
      Utilities.createTmpDirs(conf, mapWork);
  
@@ -433,7 +544,7 @@ index e116426..fb4f0b5 100644
      // finally create the vertex
      Vertex map = null;
  
-@@ -487,7 +471,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
+@@ -487,7 +472,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
      Map<String, String> environment = new HashMap<String, String>();
      MRHelpers.updateEnvironmentForMRTasks(conf, environment, true);
      map.setTaskEnvironment(environment);
@@ -442,19 +553,20 @@ index e116426..fb4f0b5 100644
  
      assert mapWork.getAliasToWork().keySet().size() == 1;
  
-@@ -500,9 +484,9 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
+@@ -500,9 +485,9 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
      } else {
        mrInput = MRHelpers.createMRInputPayload(serializedConf, null);
      }
 -    map.addInput(alias,
-+    map.addDataSource(alias,
-         new InputDescriptor(MRInputLegacy.class.getName()).
+-        new InputDescriptor(MRInputLegacy.class.getName()).
 -        setUserPayload(mrInput), amSplitGeneratorClass);
-+        setUserPayload(mrInput), new InputInitializerDescriptor(amSplitGeneratorClass.getName()).setUserPayload(mrInput));
++    map.addDataSource(alias,
++        new DataSourceDescriptor(new InputDescriptor(MRInputLegacy.class.getName()).
++        setUserPayload(mrInput), new InputInitializerDescriptor(amSplitGeneratorClass.getName()).setUserPayload(mrInput), null));
  
      Map<String, LocalResource> localResources = new HashMap<String, LocalResource>();
      localResources.put(getBaseName(appJarLr), appJarLr);
-@@ -512,12 +496,12 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
+@@ -512,12 +497,12 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
  
      if (inputSplitInfo != null) {
        // only relevant for client-side split generation
@@ -469,7 +581,7 @@ index e116426..fb4f0b5 100644
      return map;
    }
  
-@@ -527,6 +511,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
+@@ -527,6 +512,7 @@ private Vertex createVertex(JobConf conf, MapWork mapWork,
    private JobConf initializeVertexConf(JobConf baseConf, ReduceWork reduceWork) {
      JobConf conf = new JobConf(baseConf);
  
@@ -477,7 +589,7 @@ index e116426..fb4f0b5 100644
      conf.set("mapred.reducer.class", ExecReducer.class.getName());
  
      boolean useSpeculativeExecReducers = HiveConf.getBoolVar(conf,
-@@ -550,9 +535,6 @@ private Vertex createVertex(JobConf conf, ReduceWork reduceWork,
+@@ -550,9 +536,6 @@ private Vertex createVertex(JobConf conf, ReduceWork reduceWork,
      // create the directories FileSinkOperators need
      Utilities.createTmpDirs(conf, reduceWork);
  
@@ -487,7 +599,7 @@ index e116426..fb4f0b5 100644
      // create the vertex
      Vertex reducer = new Vertex(reduceWork.getName(),
          new ProcessorDescriptor(ReduceTezProcessor.class.getName()).
-@@ -565,14 +547,14 @@ private Vertex createVertex(JobConf conf, ReduceWork reduceWork,
+@@ -565,14 +548,14 @@ private Vertex createVertex(JobConf conf, ReduceWork reduceWork,
      MRHelpers.updateEnvironmentForMRTasks(conf, environment, false);
      reducer.setTaskEnvironment(environment);
  
@@ -504,7 +616,7 @@ index e116426..fb4f0b5 100644
  
      return reducer;
    }
-@@ -606,15 +588,13 @@ private LocalResource createLocalResource(FileSystem remoteFs, Path file,
+@@ -606,15 +589,13 @@ private LocalResource createLocalResource(FileSystem remoteFs, Path file,
    }
  
    /**
@@ -523,7 +635,7 @@ index e116426..fb4f0b5 100644
  
      ProcessorDescriptor prewarmProcDescriptor = new ProcessorDescriptor(HivePreWarmProcessor.class.getName());
      prewarmProcDescriptor.setUserPayload(MRHelpers.createUserPayloadFromConf(conf));
-@@ -624,7 +604,6 @@ public PreWarmContext createPreWarmContext(TezSessionConfiguration sessionConfig
+@@ -624,7 +605,6 @@ public PreWarmContext createPreWarmContext(TezSessionConfiguration sessionConfig
  
      Map<String, LocalResource> combinedResources = new HashMap<String, LocalResource>();
  
@@ -531,15 +643,15 @@ index e116426..fb4f0b5 100644
      if (localResources != null) {
        combinedResources.putAll(localResources);
      }
-@@ -961,9 +940,9 @@ public Vertex createVertex(JobConf conf, BaseWork work,
+@@ -961,9 +941,9 @@ public Vertex createVertex(JobConf conf, BaseWork work,
  
      // final vertices need to have at least one output
      if (!hasChildren) {
 -      v.addOutput("out_"+work.getName(),
-+      v.addDataSink("out_"+work.getName(),
++      v.addDataSink("out_"+work.getName(), new DataSinkDescriptor(
            new OutputDescriptor(MROutput.class.getName())
 -          .setUserPayload(MRHelpers.createUserPayloadFromConf(conf)));
-+          .setUserPayload(MRHelpers.createUserPayloadFromConf(conf)), null);
++          .setUserPayload(MRHelpers.createUserPayloadFromConf(conf)), null, null));
      }
  
      return v;
