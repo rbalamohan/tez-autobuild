@@ -13,11 +13,11 @@
     <value>/tmp/${user.name}/staging</value>
   </property>
   <property>
-    <name>tez.slowstart-vertex-scheduler.min-src-fraction</name>
+    <name>tez.shuffle-vertex-manager.min-src-fraction</name>
     <value>0.1</value>
   </property>
   <property>
-    <name>tez.slowstart-vertex-scheduler.max-src-fraction</name>
+    <name>tez.shuffle-vertex-manager.max-src-fraction</name>
     <value>0.1</value>
   </property>
   <property>
@@ -25,31 +25,27 @@
     <value>250</value>
   </property>
   <property>
-    <name>tez.runtime.broadcast.data-via-events.enabled</name>
+    <name>tez.runtime.transfer.data-via-events.enabled</name>
     <value>true</value>
   </property>
   <property>
-    <name>tez.runtime.broadcast.data-via-events.max-size</name>
+    <name>tez.runtime.transfer.data-via-events.max-size</name>
     <value>512</value>
-  </property>
-  <property>
-    <name>tez.am.aggressive.scheduling</name>
-    <value>true</value>
   </property>
   <property>
     <name>tez.am.resource.memory.mb</name>
     <value>${mapreduce.map.memory.mb}</value>
   </property>
   <property>
-    <name>tez.am.java.opts</name>
+    <name>tez.am.launch.cmd-opts</name>
     <value>${mapreduce.map.java.opts} -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps -XX:+UseNUMA -XX:+UseParallelGC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/</value>
   </property>
   <property>
-    <name>tez.am.grouping.split-waves</name>
+    <name>tez.grouping.split-waves</name>
     <value>1.7</value>
   </property>
   <property>
-    <name>tez.am.grouping.min-size</name>
+    <name>tez.grouping.min-size</name>
     <value>16777216</value>
   </property>
   <property>
@@ -73,35 +69,23 @@
     <value>250</value>
   </property>
   <property>
-    <name>tez.runtime.intermediate-output.should-compress</name>
+    <name>tez.runtime.compress</name>
     <value>true</value>
   </property>
   <property>
-    <name>tez.runtime.intermediate-output.compress.codec</name>
-    <value>org.apache.hadoop.io.compress.DefaultCodec</value>
-  </property>
-  <property>
-    <name>tez.runtime.intermediate-input.is-compressed</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>tez.runtime.intermediate-input.compress.codec</name>
-    <value>org.apache.hadoop.io.compress.DefaultCodec</value>
+    <name>tez.runtime.compress.codec</name>
+    <value>org.apache.hadoop.io.compress.SnappyCodec</value>
   </property>
   <property>
     <name>tez.task.get-task.sleep.interval-ms.max</name>
     <value>100</value>
   </property>
   <property>
-    <name>tez.generate.dag.viz</name>
+    <name>tez.generate.debug.artifacts</name>
     <value>true</value>
   </property>
   <property>
-    <name>tez.generate.dag.viz</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>tez.am.shuffle-vertex-manager.enable.auto-parallel</name>
+    <name>tez.shuffle-vertex-manager.enable.auto-parallel</name>
     <value>false</value>
   </property>
   <property>
@@ -133,13 +117,8 @@
     <name>tez.am.session.min.held-containers</name>
     <value>10</value>
   </property>
-  <!--  for > tez 0.5 -->
   <property>
-    <name>tez.runtime.compress</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>tez.runtime.compress.codec</name>
-    <value>org.apache.hadoop.io.compress.DefaultCodec</value>
+    <name>tez.am.heartbeat.counter.interval-ms.max</name>
+    <value>4000</value>
   </property>
 </configuration>
