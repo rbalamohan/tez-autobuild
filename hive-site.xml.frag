@@ -74,6 +74,10 @@
     <name>hive.stats.fetch.partition.stats</name>
     <value>true</value>
   </property>
+  <property>
+    <name>hive.exec.reducers.bytes.per.reducer</name>
+	<value>67108864</value>
+  </property>
 <!--  <property>
     <name>hive.tez.java.opts</name>
     <value>-Dsun.net.inetaddr.negative.ttl=0  -Dsun.net.inetaddr.ttl=0 ${mapreduce.map.java.opts}</value>
