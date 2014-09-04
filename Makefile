@@ -70,7 +70,6 @@ hive: tez-dist.tar.gz
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	# this was a stupid change
 	#test "$(TEZ_VERSION)" != "0.4.0-incubating" && (cd hive; patch -p0 -f -i ../hive-tez-0.5.patch)
-	(cd hive; git stash; patch -p0 -f -i ../hive-tez-0.5.patch)
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
 	mvn clean package -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat $$($(OFFLINE) && echo "-o");
