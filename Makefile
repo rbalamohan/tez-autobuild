@@ -124,6 +124,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
+	rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*.properties.template
 	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-$(HIVE_VERSION).jar"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
