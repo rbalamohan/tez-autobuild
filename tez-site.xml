@@ -121,4 +121,16 @@
     <name>tez.am.heartbeat.counter.interval-ms.max</name>
     <value>4000</value>
   </property>
+  <property>
+    <name>tez.runtime.shuffle.keep-alive.enabled</name>
+	<value>true</value>
+  </property>
+  <property>
+    <name>tez.runtime.optimize.local.fetch</name>
+	<value>true</value>
+  </property>
+  <property>
+    <name>tez.runtime.optimize.shared.fetch</name>
+	<value>true</value>
+  </property>
 </configuration>
