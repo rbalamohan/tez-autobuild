@@ -2,7 +2,7 @@
 <configuration>
   <property>
     <name>tez.lib.uris</name>
-    <value>${fs.default.name}/apps/tez,${fs.default.name}/apps/tez/lib</value>
+    <value>${fs.default.name}/apps</value>
   </property>
   <property>
     <name>tez.am.log.level</name>
