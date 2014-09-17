@@ -104,7 +104,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	mkdir -p $(INSTALL_ROOT)/tez/conf
 	tar -C $(INSTALL_ROOT)/tez/ -xzvf tez-dist.tar.gz
 	cp -v tez-site.xml $(INSTALL_ROOT)/tez/conf/
-	sed -i~ "s@/apps@$(APP_PATH)tez-dist.tar.gz@g" $(INSTALL_ROOT)/tez/conf/tez-site.xml
+	sed -i~ "s@/apps@$(APP_PATH)tez/tez-dist.tar.gz@g" $(INSTALL_ROOT)/tez/conf/tez-site.xml
 	sed -i~ "s@/tez-history/@$(HISTORY_PATH)@g" $(INSTALL_ROOT)/tez/conf/tez-site.xml
 	$(AS_HDFS) -c "hadoop fs -rm -R -f $(APP_PATH)/tez/"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/tez/"
