@@ -62,7 +62,7 @@ tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
-	mvn package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) $$($(OFFLINE) && echo "-o") -P\!hadoop24;
+	mvn package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) $$($(OFFLINE) && echo "-o");
 
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch $(HIVE_BRANCH) https://github.com/apache/hive
