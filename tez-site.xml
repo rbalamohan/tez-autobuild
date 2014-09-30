@@ -46,7 +46,7 @@
   </property>
   <property>
     <name>tez.grouping.min-size</name>
-    <value>16777216</value>
+    <value>4194304</value>
   </property>
   <property>
     <name>tez.am.container.reuse.enabled</name>
