@@ -117,6 +117,8 @@
     <name>tez.history.logging.service.class</name>
     <value>org.apache.tez.dag.history.logging.ats.ATSHistoryLoggingService</value>
   </property>
+  <!--
+  -->
   <property>
     <name>tez.am.session.min.held-containers</name>
     <value>10</value>
@@ -137,8 +139,10 @@
     <name>tez.runtime.optimize.shared.fetch</name>
 	<value>true</value>
   </property>
+  <!--
   <property>
     <name>tez.am.acls.enabled</name>
     <value>false</value>
   </property>
+  -->
 </configuration>
