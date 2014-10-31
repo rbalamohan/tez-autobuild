@@ -139,6 +139,10 @@
     <name>tez.runtime.optimize.shared.fetch</name>
 	<value>true</value>
   </property>
+  <property>
+    <name>tez.task.resource.calculator.process-tree.class</name>
+    <value>org.apache.tez.util.TezMxBeanResourceCalculator</value>
+  </property>
   <!--
   <property>
     <name>tez.am.acls.enabled</name>
