@@ -2,7 +2,7 @@
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
-TEZ_VERSION=0.6.0-SNAPSHOT
+TEZ_VERSION=0.7.0-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=0.15.0-SNAPSHOT
 HIVE_BRANCH=trunk
