@@ -117,6 +117,10 @@
     <name>tez.history.logging.service.class</name>
     <value>org.apache.tez.dag.history.logging.ats.ATSHistoryLoggingService</value>
   </property>
+  <property>
+    <name>tez.allow.disabled.timeline-domains</name>
+    <value>true</value>
+  </property>
   <!--
   -->
   <property>
