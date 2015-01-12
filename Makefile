@@ -61,9 +61,9 @@ mysql:
 tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
-	# for hadoop version < 2.4.0, use -P\!hadoop24 -P\!hadoop26
 	cd tez/; . /etc/profile; \
 	mvn clean package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Phadoop24 -P\!hadoop26 $$($(OFFLINE) && echo "-o");
+	# for hadoop version < 2.4.0, use -P\!hadoop24 -P\!hadoop26
 
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch $(HIVE_BRANCH) https://github.com/apache/hive
