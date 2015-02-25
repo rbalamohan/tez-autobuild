@@ -2,10 +2,10 @@
 YUM=$(shell which yum)
 APT=$(shell which apt-get)
 TOOLS=git gcc cmake pdsh
-TEZ_VERSION=0.7.0-SNAPSHOT
-TEZ_BRANCH=master
+TEZ_VERSION=0.7.0-TEZ-2003-SNAPSHOT
+TEZ_BRANCH=TEZ-2003
 HIVE_VERSION=1.2.0-SNAPSHOT
-HIVE_BRANCH=trunk
+HIVE_BRANCH=llap
 HDFS=$(shell id hdfs 2> /dev/null)
 HADOOP_VERSION=2.6.0
 APP_PATH:=$(shell echo /user/$$USER/apps/`date +%Y-%b-%d`/)
