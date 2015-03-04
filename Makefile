@@ -15,6 +15,12 @@ HIVE_CONF_DIR=/etc/hive/conf/
 OFFLINE=false
 REBASE=false
 
+ALL_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | cut -f 1 -d: | tr "\n" ,) 
+FIRST_HOST=$(shell yarn node -list 2> /dev/null | grep RUNNING | head -n 1 | cut -f 1 -d ' ')
+NODE_STATUS=$(shell yarn node -status $(FIRST_HOST) 2> /dev/null)
+NODE_MEM=$(shell echo $(NODE_STATUS) | sed "s/.*Memory-Capacity : \([0-9]*\).*/\1/g" ) 
+NODE_CORES=$(shell echo $(NODE_STATUS) | sed "s/.*CPU-Capacity : \([0-9]*\).*/\1/g" ) 
+
 -include local.mk
 
 #ifneq ($(HDFS),)
@@ -131,5 +137,9 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-llap-server-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -chmod -R a+r $(APP_PATH)/"
+	sed -e "s/localhost/$(ALL_NODES)/g" \
+	-e "s/4096/"$$(($(NODE_MEM)/2))"/g" \
+	-e "s/>4</>"$$(($(NODE_CORES)/2))"</g" \
+	llap-daemon-site.xml > $(INSTALL_ROOT)/hive/conf/llap-daemon-site.xml
 
 .PHONY: hive tez protobuf ant maven
