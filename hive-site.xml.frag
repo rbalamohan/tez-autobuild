@@ -35,10 +35,6 @@
     <value>hdfs:///user/hive/</value>
   </property>
   <property>
-    <name>tez.aux.uris</name>
-    <value>hdfs:///user/hive/</value>
-  </property>
-  <property>
     <name>hive.server2.thrift.port</name>
     <value>10002</value>
   </property>
@@ -85,6 +81,26 @@
   <property>
     <name>hive.metastore.client.socket.timeout</name>
     <value>1800</value>
+  </property>
+  <!-- llap only configs -->
+  <property>
+    <name>tez.aux.uris</name>
+    <!-- this will automatically be inserted to point to llap-daemon JAR -->
+    <value>hdfs:///user/hive/</value>
+  </property>
+  <property>
+    <name>hive.execution.mode</name>
+    <value>llap</value>
+  </property>
+  <property>
+    <name>hive.llap.execution.mode</name>
+    <!-- llap decider config -->
+    <value>all</value>
+  </property>
+  <property>
+    <name>hive.llap.io.enabled</name>
+    <!-- cache + IO elevator -->
+    <value>true</value>
   </property>
 <!--  <property>
     <name>hive.tez.java.opts</name>
