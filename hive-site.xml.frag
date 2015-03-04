@@ -35,6 +35,10 @@
     <value>hdfs:///user/hive/</value>
   </property>
   <property>
+    <name>tez.aux.uris</name>
+    <value>hdfs:///user/hive/</value>
+  </property>
+  <property>
     <name>hive.server2.thrift.port</name>
     <value>10002</value>
   </property>
