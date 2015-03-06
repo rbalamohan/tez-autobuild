@@ -16,6 +16,7 @@ OFFLINE=false
 REBASE=false
 
 ALL_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | cut -f 1 -d: | tr "\n" ,) 
+NUM_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | wc -l)
 FIRST_HOST=$(shell yarn node -list 2> /dev/null | grep RUNNING | head -n 1 | cut -f 1 -d ' ')
 NODE_STATUS=$(shell yarn node -status $(FIRST_HOST) 2> /dev/null)
 NODE_MEM=$(shell echo $(NODE_STATUS) | sed "s/.*Memory-Capacity : \([0-9]*\).*/\1/g" ) 
@@ -110,7 +111,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	rm -rf $(INSTALL_ROOT)/tez
 	mkdir -p $(INSTALL_ROOT)/tez/conf
 	tar -C $(INSTALL_ROOT)/tez/ -xzvf tez-dist.tar.gz
-	cp -v tez-site.xml $(INSTALL_ROOT)/tez/conf/
+	cp -v tez-site.xml.frag $(INSTALL_ROOT)/tez/conf/tez-site.xml
 	sed -i~ "s@/apps@$(APP_PATH)tez/tez-dist.tar.gz@g" $(INSTALL_ROOT)/tez/conf/tez-site.xml
 	sed -i~ "s@/tez-history/@$(HISTORY_PATH)@g" $(INSTALL_ROOT)/tez/conf/tez-site.xml
 	$(AS_HDFS) -c "hadoop fs -rm -R -f $(APP_PATH)/tez/"
@@ -140,6 +141,9 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	sed -e "s/localhost/$(ALL_NODES)/g" \
 	-e "s/4096/"$$(($(NODE_MEM)/2))"/g" \
 	-e "s/>4</>"$$(($(NODE_CORES)/2))"</g" \
-	llap-daemon-site.xml > $(INSTALL_ROOT)/hive/conf/llap-daemon-site.xml
+	llap-daemon-site.xml.frag > $(INSTALL_ROOT)/hive/conf/llap-daemon-site.xml
+
+run: 
+	./dist/hive/bin/hive --service llap --instances $(NUM_NODES)
 
 .PHONY: hive tez protobuf ant maven
