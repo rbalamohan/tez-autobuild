@@ -137,11 +137,11 @@
   </property>
   <property>
     <name>tez.runtime.optimize.local.fetch</name>
-	<value>true</value>
+	<value>false</value>
   </property>
   <property>
     <name>tez.runtime.optimize.shared.fetch</name>
-	<value>true</value>
+	<value>false</value>
   </property>
   <property>
     <name>tez.task.resource.calculator.process-tree.class</name>
