@@ -76,7 +76,7 @@
   </property>
   <property>
     <name>hive.exec.reducers.bytes.per.reducer</name>
-	<value>67108864</value>
+    <value>67108864</value>
   </property>
   <property>
     <name>hive.metastore.client.socket.timeout</name>
@@ -100,6 +100,10 @@
   <property>
     <name>hive.llap.io.enabled</name>
     <!-- cache + IO elevator -->
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.llap.object.cache.enabled</name>
     <value>true</value>
   </property>
 <!--  <property>
