@@ -84,11 +84,6 @@
   </property>
   <!-- llap only configs -->
   <property>
-    <name>tez.aux.uris</name>
-    <!-- this will automatically be inserted to point to llap-daemon JAR -->
-    <value>hdfs:///user/hive/</value>
-  </property>
-  <property>
     <name>hive.execution.mode</name>
     <value>llap</value>
   </property>
