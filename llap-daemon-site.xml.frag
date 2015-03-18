@@ -25,9 +25,7 @@
 
   <property>
     <name>llap.daemon.service.hosts</name>
-    <value>
-	localhost
-	</value>
+    <value>@llap0</value>
     <description>Comma separate list of nodes running daemons</description>
   </property>
 
