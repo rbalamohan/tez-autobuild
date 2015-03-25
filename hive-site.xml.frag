@@ -86,4 +86,28 @@
     <name>hive.tez.java.opts</name>
     <value>-Dsun.net.inetaddr.negative.ttl=0  -Dsun.net.inetaddr.ttl=0 ${mapreduce.map.java.opts}</value>
   </property> -->
+<!--
+  this is metastore configs for ACID impl
+  <property>
+    <name>hive.support.concurrency</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.exec.dynamic.partition.mode</name>
+    <value>nonstrict</value>
+  </property>
+  <property>
+    <name>hive.txn.manager</name>
+    <value>org.apache.hadoop.hive.ql.lockmgr.DbTxnManager</value>
+  </property>
+  <property>
+    <name>hive.compactor.initiator.on</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.compactor.worker.threads</name>
+    <value>1</value>
+  </property>
+-->
+
 </configuration>
