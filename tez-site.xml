@@ -144,6 +144,11 @@
 	<value>true</value>
   </property>
   <property>
+    <!-- Starting 0.7 -->
+    <name>tez.runtime.pipelined-shuffle.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
     <name>tez.task.resource.calculator.process-tree.class</name>
     <value>org.apache.tez.util.TezMxBeanResourceCalculator</value>
   </property>
