@@ -102,7 +102,7 @@
     <value>true</value>
   </property>
   <property>
-    <name>tez.runtime.sort.threads</name>
+    <name>tez.runtime.pipelined.sorter.sort.threads</name>
     <value>4</value>
   </property>
   <property>
@@ -142,6 +142,11 @@
   <property>
     <name>tez.runtime.optimize.shared.fetch</name>
 	<value>false</value>
+  </property>
+  <property>
+    <!-- Starting 0.7 -->
+    <name>tez.runtime.pipelined-shuffle.enabled</name>
+    <value>true</value>
   </property>
   <property>
     <name>tez.task.resource.calculator.process-tree.class</name>
