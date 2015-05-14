@@ -19,6 +19,17 @@
   </property>
 
   <property>
+    <name>hive.llap.io.threadpool.size</name>
+	<value>4</value>
+	<description>Number of IO threads for each daemon</description>
+  </property>
+
+  <property>
+    <name>hive.llap.io.threadpool.size</name>
+	<value>4</value>
+  </property>
+
+  <property>
     <name>llap.daemon.memory.per.instance.mb</name>
     <value>4096</value>
   </property>
