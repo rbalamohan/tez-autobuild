@@ -7,7 +7,7 @@ TEZ_BRANCH=TEZ-2003
 HIVE_VERSION=1.2.0-SNAPSHOT
 HIVE_BRANCH=llap
 HDFS=$(shell id hdfs 2> /dev/null)
-HADOOP_VERSION=2.6.0
+HADOOP_VERSION=2.8.0-SNAPSHOT
 APP_PATH:=$(shell echo /user/$$USER/apps/llap-`date +%Y-%b-%d`/)
 HISTORY_PATH:=$(shell echo /user/$$USER/tez-history/build=`date +%Y-%b-%d`/)
 INSTALL_ROOT:=$(shell echo $$PWD/dist/)
