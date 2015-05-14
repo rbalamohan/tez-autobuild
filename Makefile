@@ -55,6 +55,9 @@ protobuf: git
 	make -j4; \
 	make install -k)
 
+clean-protobuf:
+	rm -rf protobuf-2.5.0/
+
 mysql: 
 	$(OFFLINE) || wget -c http://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.29/mysql-connector-java-5.1.29.jar
 
@@ -65,6 +68,9 @@ tez: git maven protobuf
 	mvn clean package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Phadoop24 -P\!hadoop26 $$($(OFFLINE) && echo "-o");
 	# for hadoop version < 2.4.0, use -P\!hadoop24 -P\!hadoop26
 
+clean-tez:
+	rm -rf tez
+
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch $(HIVE_BRANCH) https://github.com/apache/hive
 	cd hive; if $(REBASE); then (git stash; git clean -f -d; git pull --rebase;); fi
@@ -74,6 +80,9 @@ hive: tez-dist.tar.gz
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
 	mvn clean package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat $$($(OFFLINE) && echo "-o");
+
+clean-hive:
+	rm -rf hive
 
 dist-tez: tez 
 	cp tez/tez-dist/target/tez-$(TEZ_VERSION).tar.gz tez-dist.tar.gz
@@ -130,5 +139,12 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -chmod -R a+r $(APP_PATH)/"
+
+clean-dist:
+	rm -rf $(INSTALL_ROOT)
+
+clean-all: clean clean-tez clean-hive clean-protobuf
+
+clean: clean-dist
 
 .PHONY: hive tez protobuf ant maven
