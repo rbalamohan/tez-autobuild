@@ -49,6 +49,10 @@
     <value>4194304</value>
   </property>
   <property>
+    <name>tez.grouping.max-size</name>
+    <value>1073741824</value>
+  </property>
+  <property>
     <name>tez.am.container.reuse.enabled</name>
     <value>true</value>
   </property>
@@ -150,7 +154,7 @@
   </property>
   <property>
     <name>tez.runtime.shuffle.use.async.http</name>
-    <value>true</value>
+    <value>false</value>
   </property>
   <property>
     <name>tez.task.resource.calculator.process-tree.class</name>
