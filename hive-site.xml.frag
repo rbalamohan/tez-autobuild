@@ -27,6 +27,14 @@
     <value>4</value>
   </property>
   <property>
+    <name>hive.tez.auto.reducer.parallelism</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.tez.min.partition.factor</name>
+    <value>0.25</value>
+  </property>
+  <property>
     <name>hive.optimize.index.filter</name>
     <value>true</value>
   </property>
@@ -36,7 +44,7 @@
   </property>
   <property>
     <name>hive.server2.thrift.port</name>
-    <value>10002</value>
+    <value>10003</value>
   </property>
   <property>
     <name>hive.server2.tez.default.queues</name>
@@ -44,14 +52,10 @@
   </property>
   <property>
     <name>hive.server2.tez.sessions.per.default.queue</name>
-    <value>1</value>
+    <value>4</value>
   </property>
   <property>
     <name>hive.server2.tez.initialize.default.sessions</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>hive.server2.enable.doAs</name>
     <value>true</value>
   </property>
   <property>
@@ -113,6 +117,14 @@
     <name>hive.tez.java.opts</name>
     <value>-Dsun.net.inetaddr.negative.ttl=0  -Dsun.net.inetaddr.ttl=0 ${mapreduce.map.java.opts}</value>
   </property> -->
+  <property>
+    <name>hive.driver.parallel.compilation</name>
+	<value>true</value>
+  </property>
+  <property> 
+    <name>hive.llap.auto.allow.uber</name>
+	<value>false</value>
+  </property>
 <!--
   this is metastore configs for ACID impl
   <property>

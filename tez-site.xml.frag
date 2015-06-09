@@ -6,7 +6,7 @@
   </property>
   <property>
     <name>tez.am.log.level</name>
-    <value>INFO</value>
+    <value>WARN</value>
   </property>
   <property>
     <name>tez.staging-dir</name>
@@ -146,6 +146,10 @@
   <property>
     <!-- Starting 0.7 -->
     <name>tez.runtime.pipelined-shuffle.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.runtime.shuffle.use.async.http</name>
     <value>true</value>
   </property>
   <property>

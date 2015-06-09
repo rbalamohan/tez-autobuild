@@ -40,4 +40,10 @@
     <description>Comma separate list of nodes running daemons</description>
   </property>
 
+  <property>
+    <name>llap.daemon.task.scheduler.enable.preemption</name>
+	<value>false</value>
+	<description>disable pre-emption</description>
+  </property>
+
 </configuration>
