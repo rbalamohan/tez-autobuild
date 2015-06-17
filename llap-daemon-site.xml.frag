@@ -46,4 +46,9 @@
 	<description>disable pre-emption</description>
   </property>
 
+  <property>
+    <name>hive.llap.io.cache.orc.size</name>
+    <value>1073741824</value>
+  </property>
+
 </configuration>
