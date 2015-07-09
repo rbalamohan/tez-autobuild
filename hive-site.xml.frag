@@ -86,6 +86,7 @@
     <name>hive.metastore.client.socket.timeout</name>
     <value>1800</value>
   </property>
+<!-- 
   <property>
     <name>hive.metastore.thrift.framed.transport.enabled</name>
     <value>true</value>
@@ -94,6 +95,7 @@
     <name>hive.metastore.thrift.compact.protocol.enabled</name>
     <value>true</value>
   </property>
+-->
   <!-- llap only configs -->
   <property>
     <name>hive.execution.mode</name>
