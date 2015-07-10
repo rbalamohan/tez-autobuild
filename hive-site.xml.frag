@@ -92,6 +92,15 @@
     <value>true</value>
   </property>
 -->
+  <-- new optimizations -->
+  <property>
+    <name>hive.vectorized.execution.mapjoin.minmax.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.vectorized.execution.mapjoin.native.fast.hashtable.enabled</name>
+    <value>true</value>
+  </property>
 <!--  <property>
     <name>hive.tez.java.opts</name>
     <value>-Dsun.net.inetaddr.negative.ttl=0  -Dsun.net.inetaddr.ttl=0 ${mapreduce.map.java.opts}</value>
