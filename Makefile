@@ -1,6 +1,7 @@
 
-YUM=$(shell which yum)
-APT=$(shell which apt-get)
+YUM:=$(shell which yum)
+APT:=$(shell which apt-get)
+HADOOP:=$(shell which hadoop)
 TOOLS=git gcc cmake pdsh
 TEZ_VERSION=0.8.0-SNAPSHOT
 TEZ_BRANCH=master
@@ -8,9 +9,8 @@ HIVE_VERSION=2.0.0-SNAPSHOT
 HIVE_BRANCH=master
 HDFS=$(shell id hdfs 2> /dev/null)
 # try to build against local hadoop always
-LOCAL_HADOOP=$(shell hadoop -version 2> /dev/null | grep "^Hadoop" | head -n 1 | cut -f 2 -d' ') 
-ifneq ($(LOCAL_HADOOP),)
-	HADOOP_VERSION=$(LOCAL_HADOOP)
+ifneq ($(HADOOP),)
+	HADOOP_VERSION=$(shell hadoop version | grep "^Hadoop" | cut -f 2 -d' ')
 else
 	HADOOP_VERSION=2.6.0
 endif
