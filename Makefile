@@ -5,13 +5,21 @@ TOOLS=git gcc cmake pdsh
 TEZ_VERSION=0.8.0-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=2.0.0-SNAPSHOT
-HIVE_BRANCH=trunk
+HIVE_BRANCH=master
 HDFS=$(shell id hdfs 2> /dev/null)
-HADOOP_VERSION=2.6.0
+# try to build against local hadoop always
+LOCAL_HADOOP=$(shell hadoop -version 2> /dev/null | grep "^Hadoop" | head -n 1 | cut -f 2 -d' ') 
+ifneq ($(LOCAL_HADOOP),)
+	HADOOP_VERSION=$(LOCAL_HADOOP)
+else
+	HADOOP_VERSION=2.6.0
+endif
 APP_PATH:=$(shell echo /user/$$USER/apps/`date +%Y-%b-%d`/)
 HISTORY_PATH:=$(shell echo /user/$$USER/tez-history/build=`date +%Y-%b-%d`/)
 INSTALL_ROOT:=$(shell echo $$PWD/dist/)
 HIVE_CONF_DIR=/etc/hive/conf/
+#override this in local.mk to point to jdbc jars etc 
+#AUX_JARS_PATH=/home/gopal/postgres/*:/usr/share/java/*
 HS2_PORT=10002
 OFFLINE=false
 REBASE=false
@@ -126,7 +134,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	tar -C $(INSTALL_ROOT)/hive -xzvf hive-dist.tar.gz
 	(test -d $(HIVE_CONF_DIR) && rsync -avP $(HIVE_CONF_DIR)/ $(INSTALL_ROOT)/hive/conf/) \
 	    || (cp hive-site.xml.default $(INSTALL_ROOT)/hive/conf/hive-site.xml && sed -i~ "s@HOSTNAME@$$(hostname)@" $(INSTALL_ROOT)/hive/conf/hive-site.xml)
-	echo "export HADOOP_CLASSPATH=$(INSTALL_ROOT)/tez/*:$(INSTALL_ROOT)/tez/lib/*:$(INSTALL_ROOT)/tez/conf/:/usr/share/java/*:$$HADOOP_CLASSPATH" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
+	echo "export HADOOP_CLASSPATH=$(INSTALL_ROOT)/tez/*:$(INSTALL_ROOT)/tez/lib/*:$(INSTALL_ROOT)/tez/conf/:$$HADOOP_CLASSPATH:$(AUX_JARS_PATH)" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	echo "export HADOOP_USER_CLASSPATH_FIRST=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
 		|| echo "export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/" > $(INSTALL_ROOT)/hive/conf/hive-env.sh
