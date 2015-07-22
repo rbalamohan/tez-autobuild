@@ -96,7 +96,7 @@
     <value>true</value>
   </property>
 -->
-  <-- new optimizations -->
+  <!-- new optimizations -->
   <property>
     <name>hive.vectorized.execution.mapjoin.minmax.enabled</name>
     <value>true</value>
