@@ -75,7 +75,7 @@ tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
-	mvn $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Phadoop24 -P\!hadoop26 $$($(OFFLINE) && echo "-o");
+	mvn $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Phadoop24 -P\!hadoop26 $$($(OFFLINE) && echo "-o");
 	# for hadoop version < 2.4.0, use -P\!hadoop24 -P\!hadoop26
 
 clean-tez:
