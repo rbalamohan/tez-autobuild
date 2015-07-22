@@ -21,8 +21,8 @@ ALL_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | cut -f 1 -d: | t
 NUM_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | wc -l)
 FIRST_HOST=$(shell yarn node -list 2> /dev/null | grep RUNNING | head -n 1 | cut -f 1 -d ' ')
 NODE_STATUS=$(shell yarn node -status $(FIRST_HOST) 2> /dev/null)
-NODE_MEM=$(shell echo $(NODE_STATUS) | sed "s/.*Memory-Capacity : \([0-9]*\).*/\1/g" ) 
-NODE_CORES=$(shell echo $(NODE_STATUS) | sed "s/.*CPU-Capacity : \([0-9]*\).*/\1/g" ) 
+NODE_MEM=$(shell echo '$(NODE_STATUS)' | grep "Memory-Capacity" | sed "s/.*Memory-Capacity : \([0-9]*\).*/\1/g" ) 
+NODE_CORES=$(shell echo '$(NODE_STATUS)' | grep "CPU-Capacity" | sed "s/.*CPU-Capacity : \([0-9]*\).*/\1/g" ) 
 
 -include local.mk
 
