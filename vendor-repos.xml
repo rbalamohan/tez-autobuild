@@ -1,0 +1,52 @@
+    <!-- Add vendor maven repositories -->
+    <profile>
+    <id>vendor-repos</id>
+    <activation>
+    <activeByDefault>true</activeByDefault>
+    </activation>
+    <repositories>
+      <!-- Cloudera -->
+      <repository>
+        <id>cloudera-releases</id>
+        <url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
+        <releases>
+          <enabled>true</enabled>
+          <updatePolicy>always</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+        </releases>
+        <snapshots>
+          <enabled>false</enabled>
+        </snapshots>
+      </repository>
+      <!-- Hortonworks -->
+      <repository>
+        <id>HDPReleases</id>
+        <name>HDP Releases</name>
+        <url>http://repo.hortonworks.com/content/repositories/releases/</url>
+        <releases>
+          <enabled>true</enabled>
+          <updatePolicy>always</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+        </releases>
+        <snapshots>
+          <enabled>false</enabled>
+          <updatePolicy>never</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+        </snapshots>
+        <layout>default</layout>
+      </repository>
+      <!-- MapR -->
+      <repository>
+        <id>mapr-releases</id>
+        <url>http://repository.mapr.com/maven/</url>
+        <snapshots>
+          <enabled>false</enabled>
+        </snapshots>
+        <releases>
+          <updatePolicy>always</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+          <enabled>true</enabled>
+        </releases>
+      </repository>
+    </repositories>
+    </profile>
