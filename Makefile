@@ -2,6 +2,7 @@
 YUM:=$(shell which yum)
 APT:=$(shell which apt-get)
 HADOOP:=$(shell which hadoop)
+MVN:=../dist/maven/bin/mvn
 TOOLS=git gcc cmake pdsh
 TEZ_VERSION=0.8.1-SNAPSHOT
 TEZ_BRANCH=master
@@ -76,7 +77,7 @@ tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
-	mvn $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Phadoop24 -P\!hadoop26 $$($(OFFLINE) && echo "-o");
+	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Phadoop24 -P\!hadoop26 $$($(OFFLINE) && echo "-o");
 	# for hadoop version < 2.4.0, use -P\!hadoop24 -P\!hadoop26
 
 clean-tez:
@@ -90,7 +91,7 @@ hive: tez-dist.tar.gz
 	#test "$(TEZ_VERSION)" != "0.4.0-incubating" && (cd hive; patch -p0 -f -i ../hive-tez-0.5.patch)
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
-	mvn $(CLEAN) package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat $$($(OFFLINE) && echo "-o");
+	$(MVN) $(CLEAN) package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat $$($(OFFLINE) && echo "-o");
 
 clean-hive:
 	rm -rf hive
