@@ -11,7 +11,7 @@
         <url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
         <releases>
           <enabled>true</enabled>
-          <updatePolicy>always</updatePolicy>
+          <updatePolicy>daily</updatePolicy>
           <checksumPolicy>fail</checksumPolicy>
         </releases>
         <snapshots>
@@ -30,7 +30,24 @@
         </releases>
         <snapshots>
           <enabled>false</enabled>
-          <updatePolicy>never</updatePolicy>
+          <updatePolicy>daily</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+        </snapshots>
+        <layout>default</layout>
+      </repository>
+      <!-- Hortonworks Mirror -->
+      <repository>
+        <id>HDPMirror</id>
+        <name>HDP mirror</name>
+        <url>http://repo.hortonworks.com/content/groups/public/</url>
+        <releases>
+          <enabled>true</enabled>
+          <updatePolicy>always</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+        </releases>
+        <snapshots>
+          <enabled>false</enabled>
+          <updatePolicy>daily</updatePolicy>
           <checksumPolicy>fail</checksumPolicy>
         </snapshots>
         <layout>default</layout>
@@ -43,10 +60,55 @@
           <enabled>false</enabled>
         </snapshots>
         <releases>
-          <updatePolicy>always</updatePolicy>
+          <updatePolicy>daily</updatePolicy>
           <checksumPolicy>fail</checksumPolicy>
           <enabled>true</enabled>
         </releases>
       </repository>
     </repositories>
+    <pluginRepositories>
+      <!-- Cloudera -->
+      <pluginRepository>
+        <id>cloudera-releases</id>
+        <url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
+        <releases>
+          <enabled>true</enabled>
+          <updatePolicy>daily</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+        </releases>
+        <snapshots>
+          <enabled>false</enabled>
+        </snapshots>
+      </pluginRepository>
+      <!-- Hortonworks -->
+      <pluginRepository>
+        <id>HDPReleases</id>
+        <name>HDP Releases</name>
+        <url>http://repo.hortonworks.com/content/repositories/releases/</url>
+        <releases>
+          <enabled>true</enabled>
+          <updatePolicy>always</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+        </releases>
+        <snapshots>
+          <enabled>false</enabled>
+          <updatePolicy>daily</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+        </snapshots>
+        <layout>default</layout>
+      </pluginRepository>
+      <!-- MapR -->
+      <pluginRepository>
+        <id>mapr-releases</id>
+        <url>http://repository.mapr.com/maven/</url>
+        <snapshots>
+          <enabled>false</enabled>
+        </snapshots>
+        <releases>
+          <updatePolicy>daily</updatePolicy>
+          <checksumPolicy>fail</checksumPolicy>
+          <enabled>true</enabled>
+        </releases>
+      </pluginRepository>
+    </pluginRepositories>
     </profile>
