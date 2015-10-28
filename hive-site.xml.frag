@@ -90,6 +90,10 @@
     <name>hive.metastore.client.socket.timeout</name>
     <value>1800</value>
   </property>
+  <property>
+    <name>hive.tez.exec.print.summary</name>
+    <value>true</value>
+  </property>
 <!-- 
   <property>
     <name>hive.metastore.thrift.framed.transport.enabled</name>
