@@ -20,7 +20,7 @@
   </property>
   <property>
     <name>hive.auto.convert.join.noconditionaltask.size</name>
-    <value>128000000</value>
+    <value>1073741824</value>
   </property>
   <property>
     <name>hive.optimize.reducededuplication.min.reducer</name>
@@ -32,7 +32,7 @@
   </property>
   <property>
     <name>hive.tez.min.partition.factor</name>
-    <value>0.25</value>
+    <value>0.1</value>
   </property>
   <property>
     <name>hive.optimize.index.filter</name>
@@ -96,13 +96,21 @@
     <value>true</value>
   </property>
 -->
-  <!-- new optimizations -->
+  <!-- disable the simple optimizations -->
   <property>
     <name>hive.vectorized.execution.mapjoin.minmax.enabled</name>
-    <value>true</value>
+    <value>false</value>
   </property>
   <property>
     <name>hive.vectorized.execution.mapjoin.native.fast.hashtable.enabled</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>hive.tez.dynamic.partition.pruning</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.optimize.dynamic.partition.hashjoin</name>
     <value>true</value>
   </property>
   <!-- llap only configs -->
@@ -130,11 +138,20 @@
   </property> -->
   <property>
     <name>hive.driver.parallel.compilation</name>
-	<value>true</value>
+    <value>true</value>
   </property>
   <property> 
     <name>hive.llap.auto.allow.uber</name>
-	<value>false</value>
+    <value>false</value>
+  </property>
+<!-- disable ACID -->
+  <property>
+    <name>hive.txn.manager</name>
+    <value>org.apache.hadoop.hive.ql.lockmgr.DummyTxnManager</value>
+  </property>
+  <property>
+    <name>hive.support.concurrency</name>
+    <value>false</value>
   </property>
 <!--
   this is metastore configs for ACID impl

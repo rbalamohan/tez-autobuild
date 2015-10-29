@@ -82,7 +82,7 @@
   </property>
   <property>
     <name>tez.task.get-task.sleep.interval-ms.max</name>
-    <value>100</value>
+    <value>10</value>
   </property>
   <property>
     <name>tez.generate.debug.artifacts</name>
@@ -107,7 +107,11 @@
   </property>
   <property>
     <name>tez.runtime.pipelined.sorter.sort.threads</name>
-    <value>4</value>
+    <value>2</value>
+  </property>
+  <property>
+    <name>tez.runtime.pipelined.sorter.lazy-allocate.memory</name>
+    <value>true</value>
   </property>
   <property>
     <name>tez.am.maxtaskfailures.per.node</name>
@@ -119,7 +123,10 @@
   </property>
   <property>
     <name>tez.history.logging.service.class</name>
+    <value>org.apache.tez.dag.history.logging.impl.SimpleHistoryLoggingService</value>
+<!-- disable ATS
     <value>org.apache.tez.dag.history.logging.ats.ATSHistoryLoggingService</value>
+-->
   </property>
   <property>
     <name>tez.allow.disabled.timeline-domains</name>
@@ -137,15 +144,15 @@
   </property>
   <property>
     <name>tez.runtime.shuffle.keep-alive.enabled</name>
-	<value>true</value>
+    <value>true</value>
   </property>
   <property>
     <name>tez.runtime.optimize.local.fetch</name>
-	<value>false</value>
+    <value>false</value>
   </property>
   <property>
     <name>tez.runtime.optimize.shared.fetch</name>
-	<value>false</value>
+    <value>false</value>
   </property>
   <property>
     <!-- Starting 0.7 -->
