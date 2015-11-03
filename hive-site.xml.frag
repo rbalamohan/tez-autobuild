@@ -63,6 +63,10 @@
     <value>false</value>
   </property>
   <property>
+    <name>hive.server2.thrift.min.worker.threads</name>
+    <value>24</value>
+  </property>
+  <property>
     <name>hive.fetch.task.conversion</name>
     <value>more</value>
   </property>
