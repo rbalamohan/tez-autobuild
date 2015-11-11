@@ -88,7 +88,9 @@ hive: tez-dist.tar.gz
 	cd hive; if $(REBASE); then (git stash; git clean -f -d; git pull --rebase;); fi
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	# this was a stupid change
-	#test "$(TEZ_VERSION)" != "0.4.0-incubating" && (cd hive; patch -p0 -f -i ../hive-tez-0.5.patch)
+	if test "$(TEZ_VERSION)" != "0.8.1-alpha"; then \
+	  (cd hive; patch -R -p0 --dry-run -i ../hive-tez-0.8.patch || patch -p0 -f -i ../hive-tez-0.8.patch) \
+	fi
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
 	$(MVN) $(CLEAN) package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o");
