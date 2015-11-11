@@ -9,7 +9,12 @@ TEZ_BRANCH=master
 HIVE_VERSION=2.0.0-SNAPSHOT
 HIVE_BRANCH=master
 HDFS=$(shell id hdfs 2> /dev/null)
-HADOOP_VERSION=2.8.0-SNAPSHOT
+# try to build against local hadoop always
+ifneq ($(HADOOP),)
+  HADOOP_VERSION=$(shell hadoop version | grep "^Hadoop" | cut -f 2 -d' ')
+else
+  HADOOP_VERSION=2.8.0-SNAPSHOT
+endif
 APP_PATH:=$(shell echo /user/$$USER/apps/llap-`date +%Y-%b-%d`/)
 HISTORY_PATH:=$(shell echo /user/$$USER/tez-history/build=`date +%Y-%b-%d`/)
 INSTALL_ROOT:=$(shell echo $$PWD/dist/)
@@ -89,7 +94,7 @@ hive: tez-dist.tar.gz
 	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
 	# this was a stupid change
 	if test "$(TEZ_VERSION)" != "0.8.1-alpha"; then \
-	  (cd hive; patch -R -p0 --dry-run -i ../hive-tez-0.8.patch || patch -p0 -f -i ../hive-tez-0.8.patch) \
+	  (cd hive; patch -R -N -p0 -f -i ../hive-tez-0.8.patch --dry-run 2> /dev/null || patch -N -p0 -f -i ../hive-tez-0.8.patch) \
 	fi
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \

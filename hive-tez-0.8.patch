@@ -11,16 +11,3 @@ index fc66254..b905709 100644
      }
  
      /**
-diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
-index 157f9d3..5c95086 100644
---- llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
-+++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
-@@ -217,7 +217,7 @@ public LlapTaskUmbilicalProtocol run() throws Exception {
-               serviceConsumerMetadata, envMap, startedInputsMap, taskReporter, executor,
-               objectRegistry,
-               pid,
--              executionContext, memoryAvailable);
-+              executionContext, memoryAvailable, false);
-         }
-       }
-       if (taskRunner == null) {
