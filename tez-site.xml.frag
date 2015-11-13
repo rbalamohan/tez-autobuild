@@ -70,7 +70,7 @@
   </property>
   <property>
     <name>tez.am.container.reuse.locality.delay-allocation-millis</name>
-    <value>250</value>
+    <value>20</value>
   </property>
   <property>
     <name>tez.runtime.compress</name>

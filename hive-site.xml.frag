@@ -118,6 +118,10 @@
     <value>true</value>
   </property>
   <property>
+    <name>hive.tez.bucket.pruning</name>
+    <value>true</value>
+  </property>
+  <property>
     <name>hive.optimize.dynamic.partition.hashjoin</name>
     <value>true</value>
   </property>
