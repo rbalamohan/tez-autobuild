@@ -171,10 +171,8 @@
     <name>tez.runtime.convert.user-payload.to.history-text</name>
     <value>true</value>
   </property>
-  <!--
   <property>
     <name>tez.am.acls.enabled</name>
     <value>false</value>
   </property>
-  -->
 </configuration>
