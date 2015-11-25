@@ -7,6 +7,10 @@
     <value>true</value>
   </property>
   <property>
+    <name>hive.vectorized.execution.reduce.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
     <name>hive.limit.pushdown.memory.usage</name>
     <value>0.04</value>
   </property>
@@ -107,10 +111,14 @@
   <!-- disable the simple optimizations -->
   <property>
     <name>hive.vectorized.execution.mapjoin.minmax.enabled</name>
-    <value>false</value>
+    <value>true</value>
   </property>
   <property>
     <name>hive.vectorized.execution.mapjoin.native.fast.hashtable.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.mapjoin.hybridgrace.hashtable</name>
     <value>false</value>
   </property>
   <property>
@@ -188,5 +196,19 @@
     <value>1</value>
   </property>
 -->
+  <property>
+    <name>hive.vectorized.execution.mapjoin.native.enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>hive.transpose.aggr.join</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>hive.cbo.costmodel.extended</name>
+    <value>false</value>
+  </property>
 
 </configuration>
