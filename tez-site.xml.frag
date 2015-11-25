@@ -12,6 +12,18 @@
     <name>tez.staging-dir</name>
     <value>/tmp/${user.name}/staging</value>
   </property>
+  <!-- heartbeat configs -->
+  <property>
+    <name>tez.task.heartbeat.timeout.check-ms</name>
+    <!-- once every 2 heartbeats -->
+    <value>8000</value>
+  </property>
+  <property>
+    <name>tez.task.timeout-ms</name>
+    <!-- after 3  heartbeats -->
+    <value>15000</value>
+  </property>
+  <!-- slow-start configs -->
   <property>
     <name>tez.shuffle-vertex-manager.min-src-fraction</name>
     <value>0.1</value>
@@ -46,7 +58,7 @@
   </property>
   <property>
     <name>tez.grouping.min-size</name>
-    <value>4194304</value>
+    <value>67108864</value>
   </property>
   <property>
     <name>tez.grouping.max-size</name>
@@ -170,6 +182,14 @@
   <property>
     <name>tez.runtime.convert.user-payload.to.history-text</name>
     <value>true</value>
+  </property>
+  <property>
+    <name>tez.runtime.report.partition.stats</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.runtime.shuffle.parallel.copies</name>
+    <value>4</value>
   </property>
   <property>
     <name>tez.am.acls.enabled</name>
