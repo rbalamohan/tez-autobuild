@@ -23,6 +23,7 @@ OFFLINE=false
 REBASE=false
 CLEAN=clean
 MINIMIZE=false
+METASTORE=true
 
 ALL_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | cut -f 1 -d: | tr "\n" ,) 
 NUM_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | wc -l)
@@ -150,10 +151,12 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	sed -e "s@hdfs:///user/hive/@$$\{fs.default.name\}$(APP_PATH)/hive/@" hive-site.xml.frag > hive-site.xml.local
 	sed -i~ \
 	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
+ 	$$($(METASTORE) || echo '-e s@thrift://[^<]*@@') \
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
-	rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*.properties.template
+	rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*.properties.template \
+	|| rename .xml.template .xml $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template
 	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-$(HIVE_VERSION).jar"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
