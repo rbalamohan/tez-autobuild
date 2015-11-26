@@ -88,7 +88,7 @@
   </property>
   <property>
     <name>hive.exec.reducers.bytes.per.reducer</name>
-    <value>67108864</value>
+    <value>256000000</value>
   </property>
   <property>
     <name>hive.metastore.client.socket.timeout</name>
