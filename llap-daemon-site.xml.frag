@@ -50,5 +50,15 @@
     <name>hive.llap.io.cache.orc.size</name>
     <value>1073741824</value>
   </property>
+  
+  <property>
+    <name>mapreduce.shuffle.connection-keep-alive.enable</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>mapreduce.shuffle.connection-keep-alive.timeout</name>
+    <value>60</value>
+  </property>
 
 </configuration>
