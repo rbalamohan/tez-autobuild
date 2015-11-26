@@ -30,7 +30,7 @@
   </property>
   <property>
     <name>tez.shuffle-vertex-manager.max-src-fraction</name>
-    <value>0.1</value>
+    <value>0.8</value>
   </property>
   <property>
     <name>tez.am.am-rm.heartbeat.interval-ms.max</name>
@@ -149,6 +149,10 @@
   <property>
     <name>tez.am.session.min.held-containers</name>
     <value>10</value>
+  </property>
+  <property>
+    <name>tez.session.am.dag.submit.timeout.secs</name>
+    <value>1800</value>
   </property>
   <property>
     <name>tez.am.heartbeat.counter.interval-ms.max</name>
