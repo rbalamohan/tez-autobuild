@@ -24,7 +24,7 @@
   </property>
   <property>
     <name>hive.auto.convert.join.noconditionaltask.size</name>
-    <value>1073741824</value>
+    <value>2576980377</value>
   </property>
   <property>
     <name>hive.optimize.reducededuplication.min.reducer</name>
@@ -209,6 +209,11 @@
   <property>
     <name>hive.cbo.costmodel.extended</name>
     <value>false</value>
+  </property>
+  
+  <property>
+    <name>hive.fetch.task.conversion.threshold</name>
+    <value>640000000</value>
   </property>
 
 </configuration>
