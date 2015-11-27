@@ -69,7 +69,8 @@
   </property>
   <property>
     <name>hive.server2.thrift.min.worker.threads</name>
-    <value>32</value>
+    <!-- match max async pool -->
+    <value>100</value>
   </property>
   <property>
     <name>hive.fetch.task.conversion</name>
