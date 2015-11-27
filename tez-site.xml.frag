@@ -23,6 +23,10 @@
     <!-- after 3  heartbeats -->
     <value>15000</value>
   </property>
+  <property>
+    <name>ipc.client.connect.timeout</name>
+    <value>2000</value>
+  </property>
   <!-- slow-start configs -->
   <property>
     <name>tez.shuffle-vertex-manager.min-src-fraction</name>
@@ -203,5 +207,13 @@
   <property>
     <name>tez.dag.recovery.max.unflushed.events</name>
     <value>15000</value>
+  </property>
+  <property>
+    <name>tez.dag.recovery.flush.interval.secs</name>
+    <value>30</value>
+  </property>
+  <property>
+    <name>tez.dag.recovery.enabled</name>
+    <value>true</value>
   </property>
 </configuration>
