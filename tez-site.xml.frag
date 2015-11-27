@@ -206,11 +206,11 @@
   <!-- Specifically for LLAP where hflush can be too many -->
   <property>
     <name>tez.dag.recovery.max.unflushed.events</name>
-    <value>15000</value>
+    <value>150000</value>
   </property>
   <property>
     <name>tez.dag.recovery.flush.interval.secs</name>
-    <value>30</value>
+    <value>60</value>
   </property>
   <property>
     <name>tez.dag.recovery.enabled</name>
