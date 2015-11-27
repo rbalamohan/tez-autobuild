@@ -23,7 +23,8 @@ OFFLINE=false
 REBASE=false
 CLEAN=clean
 MINIMIZE=false
-METASTORE=true
+METASTORE=false
+LOGLEVEL=WARN
 
 ALL_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | cut -f 1 -d: | tr "\n" ,) 
 NUM_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | wc -l)
@@ -155,8 +156,14 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
-	rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*.properties.template \
-	|| rename .xml.template .xml $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template
+	if -f $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; then\
+		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
+		rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
+	fi
+	if -f $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template; then\
+		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template; \
+		rename .xml.template .xml $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template; \
+	fi
 	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-$(HIVE_VERSION).jar"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
