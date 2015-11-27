@@ -199,4 +199,9 @@
     <name>tez.am.acls.enabled</name>
     <value>false</value>
   </property>
+  <!-- Specifically for LLAP where hflush can be too many -->
+  <property>
+    <name>tez.dag.recovery.max.unflushed.events</name>
+    <value>15000</value>
+  </property>
 </configuration>
