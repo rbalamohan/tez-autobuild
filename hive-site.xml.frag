@@ -8,7 +8,8 @@
   </property>
   <property>
     <name>hive.vectorized.execution.reduce.enabled</name>
-    <value>true</value>
+    <!-- Setting to false until HIVE-12534 is fixed-->
+    <value>false</value>
   </property>
   <property>
     <name>hive.limit.pushdown.memory.usage</name>
