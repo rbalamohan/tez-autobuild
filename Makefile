@@ -156,11 +156,11 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
-	if -f $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; then\
+	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j.properties.template)" != "" ]; then\
 		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
 		rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
 	fi
-	if -f $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template; then\
+	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template)" != "" ]; then\
 		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template; \
 		rename .xml.template .xml $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template; \
 	fi
