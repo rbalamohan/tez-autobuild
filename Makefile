@@ -6,7 +6,7 @@ MVN:=../dist/maven/bin/mvn
 TOOLS=git gcc #cmake pdsh
 TEZ_VERSION=0.8.2-SNAPSHOT
 TEZ_BRANCH=master
-HIVE_VERSION=2.0.0-SNAPSHOT
+HIVE_VERSION=2.1.0-SNAPSHOT
 HIVE_BRANCH=master
 HDFS=$(shell id hdfs 2> /dev/null)
 # try to build against local hadoop always
@@ -160,9 +160,9 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
 		rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
 	fi
-	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template)" != "" ]; then\
-		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template; \
-		rename .xml.template .xml $(INSTALL_ROOT)/hive/conf/*log4j2.xml.template; \
+	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template)" != "" ]; then\
+		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template; \
+		rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template; \
 	fi
 	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-$(HIVE_VERSION).jar"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
