@@ -1,4 +1,8 @@
   <property>
+    <name>hive.mapred.mode</name>
+    <value>nonstrict</value>
+  </property>
+  <property>
     <name>hive.execution.engine</name>
     <value>tez</value>
   </property>
