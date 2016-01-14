@@ -54,7 +54,7 @@
   </property>
   <property>
     <name>tez.am.launch.cmd-opts</name>
-    <value>-XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps -XX:+UseNUMA -XX:+UseParallelGC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/</value>
+    <value>-XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps -XX:+UseNUMA -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/</value>
   </property>
   <property>
     <name>tez.grouping.split-waves</name>
