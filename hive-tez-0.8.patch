@@ -1,36 +1,312 @@
-diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java
-index fc66254..bb9f341 100644
---- llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java
-+++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java
-@@ -350,13 +350,15 @@ private TaskStatusUpdateEvent getStatusUpdateEvent(boolean sendCounters) {
-       float progress = 0;
-       if (task.hasInitialized()) {
-         progress = task.getProgress();
-+        // TODO HIVE-12449. Make use of progress notifications once Hive starts sending them out.
-+        // progressNotified = task.getAndClearProgressNotification();
-         if (sendCounters) {
-           // send these potentially large objects at longer intervals to avoid overloading the AM
-           counters = task.getCounters();
-           stats = task.getTaskStatistics();
-         }
-       }
--      return new TaskStatusUpdateEvent(counters, progress, stats);
-+      return new TaskStatusUpdateEvent(counters, progress, stats, true);
+diff --git common/src/java/org/apache/hadoop/hive/conf/HiveConf.java common/src/java/org/apache/hadoop/hive/conf/HiveConf.java
+index 081c1fe..13a826e 100644
+--- common/src/java/org/apache/hadoop/hive/conf/HiveConf.java
++++ common/src/java/org/apache/hadoop/hive/conf/HiveConf.java
+@@ -2256,7 +2256,6 @@ public void setSparkConfigUpdated(boolean isSparkConfigUpdated) {
+         "Whether to generate the splits locally or in the AM (tez only)"),
+     HIVE_TEZ_GENERATE_CONSISTENT_SPLITS("hive.tez.input.generate.consistent.splits", true,
+         "Whether to generate consistent split locations when generating splits in the AM"),
+-
+     HIVE_PREWARM_ENABLED("hive.prewarm.enabled", false, "Enables container prewarm for Tez/Spark (Hadoop 2 only)"),
+     HIVE_PREWARM_NUM_CONTAINERS("hive.prewarm.numcontainers", 10, "Controls the number of containers to prewarm for Tez/Spark (Hadoop 2 only)"),
+ 
+@@ -2469,7 +2468,7 @@ public void setSparkConfigUpdated(boolean isSparkConfigUpdated) {
+        new TimeValidator(TimeUnit.SECONDS),
+       "How long to delay before cleaning up query files in LLAP (in seconds, for debugging).",
+       "llap.file.cleanup.delay-seconds"),
+-    LLAP_DAEMON_SERVICE_HOSTS("hive.llap.daemon.service.hosts", "",
++    LLAP_DAEMON_SERVICE_HOSTS("hive.llap.daemon.service.hosts", null,
+       "Explicitly specified hosts to use for LLAP scheduling. Useful for testing. By default,\n" +
+       "YARN registry is used.", "llap.daemon.service.hosts"),
+     LLAP_DAEMON_SERVICE_REFRESH_INTERVAL("hive.llap.daemon.service.refresh.interval.sec", "60s",
+@@ -2536,6 +2535,10 @@ public void setSparkConfigUpdated(boolean isSparkConfigUpdated) {
+       "llap.daemon.service.port"),
+     LLAP_DAEMON_WEB_SSL("hive.llap.daemon.web.ssl", false,
+       "Whether LLAP daemon web UI should use SSL.", "llap.daemon.service.ssl"),
++    LLAP_CLIENT_CONSISTENT_SPLITS("hive.llap.client.consistent.splits",
++        false,
++        "Whether to setup split locations to match nodes on which llap daemons are running," +
++            " instead of using the locations provided by the split itself"),
+ 
+     SPARK_CLIENT_FUTURE_TIMEOUT("hive.spark.client.future.timeout",
+       "60s", new TimeValidator(TimeUnit.SECONDS),
+diff --git llap-client/src/java/org/apache/hadoop/hive/llap/registry/ServiceInstanceSet.java llap-client/src/java/org/apache/hadoop/hive/llap/registry/ServiceInstanceSet.java
+index 388b5f3..be811eb 100644
+--- llap-client/src/java/org/apache/hadoop/hive/llap/registry/ServiceInstanceSet.java
++++ llap-client/src/java/org/apache/hadoop/hive/llap/registry/ServiceInstanceSet.java
+@@ -14,6 +14,7 @@
+ package org.apache.hadoop.hive.llap.registry;
+ 
+ import java.io.IOException;
++import java.util.List;
+ import java.util.Map;
+ import java.util.Set;
+ 
+@@ -30,6 +31,13 @@
+   public Map<String, ServiceInstance> getAll();
+ 
+   /**
++   * Gets a list containing all the instances. This list has the same iteration order across
++   * different processes, assuming the list of registry entries is the same.
++   * @return
++   */
++  public List<ServiceInstance> getAllInstancesOrdered();
++
++  /**
+    * Get an instance by worker identity.
+    * 
+    * @param name
+diff --git llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapFixedRegistryImpl.java llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapFixedRegistryImpl.java
+index ef9de32..92044bb 100644
+--- llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapFixedRegistryImpl.java
++++ llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapFixedRegistryImpl.java
+@@ -17,8 +17,13 @@
+ import java.net.InetAddress;
+ import java.net.InetSocketAddress;
+ import java.net.UnknownHostException;
++import java.util.Collections;
++import java.util.Comparator;
+ import java.util.HashMap;
+ import java.util.HashSet;
++import java.util.LinkedHashMap;
++import java.util.LinkedList;
++import java.util.List;
+ import java.util.Map;
+ import java.util.Set;
+ 
+@@ -176,7 +181,8 @@ public String toString() {
+ 
+   private final class FixedServiceInstanceSet implements ServiceInstanceSet {
+ 
+-    private final Map<String, ServiceInstance> instances = new HashMap<String, ServiceInstance>();
++    // LinkedHashMap have a repeatable iteration order.
++    private final Map<String, ServiceInstance> instances = new LinkedHashMap<>();
+ 
+     public FixedServiceInstanceSet() {
+       for (String host : hosts) {
+@@ -191,6 +197,19 @@ public FixedServiceInstanceSet() {
      }
  
-     /**
+     @Override
++    public List<ServiceInstance> getAllInstancesOrdered() {
++      List<ServiceInstance> list = new LinkedList<>();
++      list.addAll(instances.values());
++      Collections.sort(list, new Comparator<ServiceInstance>() {
++        @Override
++        public int compare(ServiceInstance o1, ServiceInstance o2) {
++          return o2.getWorkerIdentity().compareTo(o2.getWorkerIdentity());
++        }
++      });
++      return list;
++    }
++
++    @Override
+     public ServiceInstance getInstance(String name) {
+       return instances.get(name);
+     }
+diff --git llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapRegistryService.java llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapRegistryService.java
+index 740f373..907faed 100644
+--- llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapRegistryService.java
++++ llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapRegistryService.java
+@@ -14,11 +14,13 @@
+ package org.apache.hadoop.hive.llap.registry.impl;
+ 
+ import java.io.IOException;
++import java.util.HashMap;
++import java.util.Map;
+ 
++import com.google.common.base.Preconditions;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.hive.conf.HiveConf;
+ import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
+-import org.apache.hadoop.hive.llap.configuration.LlapConfiguration;
+ import org.apache.hadoop.hive.llap.registry.ServiceInstanceSet;
+ import org.apache.hadoop.hive.llap.registry.ServiceRegistry;
+ import org.apache.hadoop.service.AbstractService;
+@@ -32,11 +34,45 @@
+   private ServiceRegistry registry = null;
+   private final boolean isDaemon;
+ 
++  private static final Map<String, LlapRegistryService> yarnRegistries = new HashMap<>();
++
+   public LlapRegistryService(boolean isDaemon) {
+     super("LlapRegistryService");
+     this.isDaemon = isDaemon;
+   }
+ 
++  /**
++   * Helper method to get a ServiceRegistry instance to read from the registry.
++   * This should not be used by LLAP daemons.
++   *
++   * @param conf {@link Configuration} instance which contains service registry information.
++   * @return
++   */
++  public static synchronized LlapRegistryService getClient(Configuration conf) {
++    String hosts = HiveConf.getTrimmedVar(conf, HiveConf.ConfVars.LLAP_DAEMON_SERVICE_HOSTS);
++    Preconditions.checkNotNull(hosts, ConfVars.LLAP_DAEMON_SERVICE_HOSTS.toString() + " must be defined");
++    LlapRegistryService registry;
++    if (hosts.startsWith("@")) {
++      // Caching instances only in case of the YARN registry. Each host based list will get it's own copy.
++      String name = hosts.substring(1);
++      if (yarnRegistries.containsKey(name)) {
++        registry = yarnRegistries.get(name);
++      } else {
++        registry = new LlapRegistryService(false);
++        registry.init(conf);
++        registry.start();
++        yarnRegistries.put(name, registry);
++      }
++    } else {
++      registry = new LlapRegistryService(false);
++      registry.init(conf);
++      registry.start();
++    }
++    LOG.info("Using LLAP registry (client) type: " + registry);
++    return registry;
++  }
++
++
+   @Override
+   public void serviceInit(Configuration conf) {
+     String hosts = HiveConf.getTrimmedVar(conf, ConfVars.LLAP_DAEMON_SERVICE_HOSTS);
+diff --git llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapYarnRegistryImpl.java llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapYarnRegistryImpl.java
+index fc2ebf2..efe31cc 100644
+--- llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapYarnRegistryImpl.java
++++ llap-client/src/java/org/apache/hadoop/hive/llap/registry/impl/LlapYarnRegistryImpl.java
+@@ -20,15 +20,20 @@
+ import java.net.URISyntaxException;
+ import java.net.URL;
+ import java.net.UnknownHostException;
++import java.util.Collections;
++import java.util.Comparator;
+ import java.util.HashMap;
+ import java.util.HashSet;
+ import java.util.LinkedHashMap;
++import java.util.LinkedList;
++import java.util.List;
+ import java.util.Map;
+ import java.util.Set;
+ import java.util.UUID;
+ import java.util.concurrent.Executors;
+ import java.util.concurrent.ScheduledExecutorService;
+ import java.util.concurrent.TimeUnit;
++import java.util.concurrent.locks.ReentrantReadWriteLock;
+ 
+ import com.google.common.util.concurrent.ThreadFactoryBuilder;
+ import org.apache.hadoop.conf.Configuration;
+@@ -269,16 +274,47 @@ public int getManagementPort() {
+ 
+     // LinkedHashMap to retain iteration order.
+     private final Map<String, ServiceInstance> instances = new LinkedHashMap<>();
++    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
++    private final ReentrantReadWriteLock.ReadLock readLock = lock.readLock();
++    private final ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
+ 
+     @Override
+-    public synchronized Map<String, ServiceInstance> getAll() {
++    public Map<String, ServiceInstance> getAll() {
+       // Return a copy. Instances may be modified during a refresh.
+-      return new LinkedHashMap<>(instances);
++      readLock.lock();
++      try {
++        return new LinkedHashMap<>(instances);
++      } finally {
++        readLock.unlock();
++      }
+     }
+ 
+     @Override
+-    public synchronized ServiceInstance getInstance(String name) {
+-      return instances.get(name);
++    public List<ServiceInstance> getAllInstancesOrdered() {
++      List<ServiceInstance> list = new LinkedList<>();
++      readLock.lock();
++      try {
++        list.addAll(instances.values());
++      } finally {
++        readLock.unlock();
++      }
++      Collections.sort(list, new Comparator<ServiceInstance>() {
++        @Override
++        public int compare(ServiceInstance o1, ServiceInstance o2) {
++          return o2.getWorkerIdentity().compareTo(o2.getWorkerIdentity());
++        }
++      });
++      return list;
++    }
++
++    @Override
++    public ServiceInstance getInstance(String name) {
++      readLock.lock();
++      try {
++        return instances.get(name);
++      } finally {
++        readLock.unlock();
++      }
+     }
+ 
+     @Override
+@@ -290,7 +326,8 @@ public  void refresh() throws IOException {
+       Map<String, ServiceRecord> records =
+           RegistryUtils.listServiceRecords(client, RegistryPathUtils.parentOf(path));
+       // Synchronize after reading the service records from the external service (ZK)
+-      synchronized (this) {
++      writeLock.lock();
++      try {
+         Set<String> latestKeys = new HashSet<String>();
+         LOG.info("Starting to refresh ServiceInstanceSet " + System.identityHashCode(this));
+         for (ServiceRecord rec : records.values()) {
+@@ -333,28 +370,34 @@ public  void refresh() throws IOException {
+         } else {
+           this.instances.putAll(freshInstances);
+         }
++      } finally {
++        writeLock.unlock();
+       }
+     }
+ 
+     @Override
+-    public synchronized Set<ServiceInstance> getByHost(String host) {
++    public Set<ServiceInstance> getByHost(String host) {
+       // TODO Maybe store this as a map which is populated during construction, to avoid walking
+       // the map on each request.
++      readLock.lock();
+       Set<ServiceInstance> byHost = new HashSet<ServiceInstance>();
+-
+-      for (ServiceInstance i : instances.values()) {
+-        if (host.equals(i.getHost())) {
+-          // all hosts in instances should be alive in this impl
+-          byHost.add(i);
++      try {
++        for (ServiceInstance i : instances.values()) {
++          if (host.equals(i.getHost())) {
++            // all hosts in instances should be alive in this impl
++            byHost.add(i);
++          }
++          if (LOG.isDebugEnabled()) {
++            LOG.debug("Locality comparing " + host + " to " + i.getHost());
++          }
+         }
+         if (LOG.isDebugEnabled()) {
+-          LOG.debug("Locality comparing " + host + " to " + i.getHost());
++          LOG.debug("Returning " + byHost.size() + " hosts for locality allocation on " + host);
+         }
++        return byHost;
++      } finally {
++        readLock.unlock();
+       }
+-      if (LOG.isDebugEnabled()) {
+-        LOG.debug("Returning " + byHost.size() + " hosts for locality allocation on " + host);
+-      }
+-      return byHost;
+     }
+   }
+ 
 diff --git llap-server/src/gen/protobuf/gen-java/org/apache/hadoop/hive/llap/daemon/rpc/LlapDaemonProtocolProtos.java llap-server/src/gen/protobuf/gen-java/org/apache/hadoop/hive/llap/daemon/rpc/LlapDaemonProtocolProtos.java
-index af009b8..4f63c98 100644
+index d2180e5..4ab7b32 100644
 --- llap-server/src/gen/protobuf/gen-java/org/apache/hadoop/hive/llap/daemon/rpc/LlapDaemonProtocolProtos.java
 +++ llap-server/src/gen/protobuf/gen-java/org/apache/hadoop/hive/llap/daemon/rpc/LlapDaemonProtocolProtos.java
-@@ -1,5 +1,5 @@
- // Generated by the protocol buffer compiler.  DO NOT EDIT!
--// source: LlapDaemonProtocol.proto
-+// source: llap-server/src/protobuf/LlapDaemonProtocol.proto
- 
- package org.apache.hadoop.hive.llap.daemon.rpc;
- 
-@@ -3154,6 +3154,16 @@ public Builder clearMergedInputDescriptor() {
+@@ -3245,6 +3245,16 @@ public Builder clearMergedInputDescriptor() {
      com.google.protobuf.ByteString
          getDagNameBytes();
  
@@ -47,7 +323,7 @@ index af009b8..4f63c98 100644
      // optional string vertex_name = 3;
      /**
       * <code>optional string vertex_name = 3;</code>
-@@ -3350,13 +3360,13 @@ private FragmentSpecProto(
+@@ -3441,13 +3451,13 @@ private FragmentSpecProto(
                break;
              }
              case 26: {
@@ -63,7 +339,7 @@ index af009b8..4f63c98 100644
                  subBuilder = processorDescriptor_.toBuilder();
                }
                processorDescriptor_ = input.readMessage(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.EntityDescriptorProto.PARSER, extensionRegistry);
-@@ -3364,48 +3374,53 @@ private FragmentSpecProto(
+@@ -3455,48 +3465,53 @@ private FragmentSpecProto(
                  subBuilder.mergeFrom(processorDescriptor_);
                  processorDescriptor_ = subBuilder.buildPartial();
                }
@@ -127,7 +403,7 @@ index af009b8..4f63c98 100644
            }
          }
        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-@@ -3414,13 +3429,13 @@ private FragmentSpecProto(
+@@ -3505,13 +3520,13 @@ private FragmentSpecProto(
          throw new com.google.protobuf.InvalidProtocolBufferException(
              e.getMessage()).setUnfinishedMessage(this);
        } finally {
@@ -144,7 +420,7 @@ index af009b8..4f63c98 100644
            groupedInputSpecs_ = java.util.Collections.unmodifiableList(groupedInputSpecs_);
          }
          this.unknownFields = unknownFields.build();
-@@ -3541,6 +3556,22 @@ public boolean hasDagName() {
+@@ -3632,6 +3647,22 @@ public boolean hasDagName() {
        }
      }
  
@@ -167,7 +443,7 @@ index af009b8..4f63c98 100644
      // optional string vertex_name = 3;
      public static final int VERTEX_NAME_FIELD_NUMBER = 3;
      private java.lang.Object vertexName_;
-@@ -3548,7 +3579,7 @@ public boolean hasDagName() {
+@@ -3639,7 +3670,7 @@ public boolean hasDagName() {
       * <code>optional string vertex_name = 3;</code>
       */
      public boolean hasVertexName() {
@@ -176,7 +452,7 @@ index af009b8..4f63c98 100644
      }
      /**
       * <code>optional string vertex_name = 3;</code>
-@@ -3591,7 +3622,7 @@ public boolean hasVertexName() {
+@@ -3682,7 +3713,7 @@ public boolean hasVertexName() {
       * <code>optional .EntityDescriptorProto processor_descriptor = 4;</code>
       */
      public boolean hasProcessorDescriptor() {
@@ -185,7 +461,7 @@ index af009b8..4f63c98 100644
      }
      /**
       * <code>optional .EntityDescriptorProto processor_descriptor = 4;</code>
-@@ -3721,7 +3752,7 @@ public int getGroupedInputSpecsCount() {
+@@ -3812,7 +3843,7 @@ public int getGroupedInputSpecsCount() {
       * <code>optional int32 vertex_parallelism = 8;</code>
       */
      public boolean hasVertexParallelism() {
@@ -194,7 +470,7 @@ index af009b8..4f63c98 100644
      }
      /**
       * <code>optional int32 vertex_parallelism = 8;</code>
-@@ -3737,7 +3768,7 @@ public int getVertexParallelism() {
+@@ -3828,7 +3859,7 @@ public int getVertexParallelism() {
       * <code>optional int32 fragment_number = 9;</code>
       */
      public boolean hasFragmentNumber() {
@@ -203,7 +479,7 @@ index af009b8..4f63c98 100644
      }
      /**
       * <code>optional int32 fragment_number = 9;</code>
-@@ -3753,7 +3784,7 @@ public int getFragmentNumber() {
+@@ -3844,7 +3875,7 @@ public int getFragmentNumber() {
       * <code>optional int32 attempt_number = 10;</code>
       */
      public boolean hasAttemptNumber() {
@@ -212,7 +488,7 @@ index af009b8..4f63c98 100644
      }
      /**
       * <code>optional int32 attempt_number = 10;</code>
-@@ -3765,6 +3796,7 @@ public int getAttemptNumber() {
+@@ -3856,6 +3887,7 @@ public int getAttemptNumber() {
      private void initFields() {
        fragmentIdentifierString_ = "";
        dagName_ = "";
@@ -220,7 +496,7 @@ index af009b8..4f63c98 100644
        vertexName_ = "";
        processorDescriptor_ = org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.EntityDescriptorProto.getDefaultInstance();
        inputSpecs_ = java.util.Collections.emptyList();
-@@ -3792,10 +3824,10 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
+@@ -3883,10 +3915,10 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
        if (((bitField0_ & 0x00000002) == 0x00000002)) {
          output.writeBytes(2, getDagNameBytes());
        }
@@ -233,7 +509,7 @@ index af009b8..4f63c98 100644
          output.writeMessage(4, processorDescriptor_);
        }
        for (int i = 0; i < inputSpecs_.size(); i++) {
-@@ -3807,15 +3839,18 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
+@@ -3898,15 +3930,18 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
        for (int i = 0; i < groupedInputSpecs_.size(); i++) {
          output.writeMessage(7, groupedInputSpecs_.get(i));
        }
@@ -255,7 +531,7 @@ index af009b8..4f63c98 100644
        getUnknownFields().writeTo(output);
      }
  
-@@ -3833,11 +3868,11 @@ public int getSerializedSize() {
+@@ -3924,11 +3959,11 @@ public int getSerializedSize() {
          size += com.google.protobuf.CodedOutputStream
            .computeBytesSize(2, getDagNameBytes());
        }
@@ -269,7 +545,7 @@ index af009b8..4f63c98 100644
          size += com.google.protobuf.CodedOutputStream
            .computeMessageSize(4, processorDescriptor_);
        }
-@@ -3853,18 +3888,22 @@ public int getSerializedSize() {
+@@ -3944,18 +3979,22 @@ public int getSerializedSize() {
          size += com.google.protobuf.CodedOutputStream
            .computeMessageSize(7, groupedInputSpecs_.get(i));
        }
@@ -295,7 +571,7 @@ index af009b8..4f63c98 100644
        size += getUnknownFields().getSerializedSize();
        memoizedSerializedSize = size;
        return size;
-@@ -3898,6 +3937,11 @@ public boolean equals(final java.lang.Object obj) {
+@@ -3989,6 +4028,11 @@ public boolean equals(final java.lang.Object obj) {
          result = result && getDagName()
              .equals(other.getDagName());
        }
@@ -307,7 +583,7 @@ index af009b8..4f63c98 100644
        result = result && (hasVertexName() == other.hasVertexName());
        if (hasVertexName()) {
          result = result && getVertexName()
-@@ -3950,6 +3994,10 @@ public int hashCode() {
+@@ -4041,6 +4085,10 @@ public int hashCode() {
          hash = (37 * hash) + DAG_NAME_FIELD_NUMBER;
          hash = (53 * hash) + getDagName().hashCode();
        }
@@ -318,7 +594,7 @@ index af009b8..4f63c98 100644
        if (hasVertexName()) {
          hash = (37 * hash) + VERTEX_NAME_FIELD_NUMBER;
          hash = (53 * hash) + getVertexName().hashCode();
-@@ -4099,38 +4147,40 @@ public Builder clear() {
+@@ -4190,38 +4238,40 @@ public Builder clear() {
          bitField0_ = (bitField0_ & ~0x00000001);
          dagName_ = "";
          bitField0_ = (bitField0_ & ~0x00000002);
@@ -367,7 +643,7 @@ index af009b8..4f63c98 100644
          return this;
        }
  
-@@ -4170,53 +4220,57 @@ public Builder clone() {
+@@ -4261,53 +4311,57 @@ public Builder clone() {
          if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
            to_bitField0_ |= 0x00000004;
          }
@@ -437,7 +713,7 @@ index af009b8..4f63c98 100644
          result.attemptNumber_ = attemptNumber_;
          result.bitField0_ = to_bitField0_;
          onBuilt();
-@@ -4244,8 +4298,11 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
+@@ -4335,8 +4389,11 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
            dagName_ = other.dagName_;
            onChanged();
          }
@@ -450,7 +726,7 @@ index af009b8..4f63c98 100644
            vertexName_ = other.vertexName_;
            onChanged();
          }
-@@ -4256,7 +4313,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
+@@ -4347,7 +4404,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
            if (!other.inputSpecs_.isEmpty()) {
              if (inputSpecs_.isEmpty()) {
                inputSpecs_ = other.inputSpecs_;
@@ -459,7 +735,7 @@ index af009b8..4f63c98 100644
              } else {
                ensureInputSpecsIsMutable();
                inputSpecs_.addAll(other.inputSpecs_);
-@@ -4269,7 +4326,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
+@@ -4360,7 +4417,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
                inputSpecsBuilder_.dispose();
                inputSpecsBuilder_ = null;
                inputSpecs_ = other.inputSpecs_;
@@ -468,7 +744,7 @@ index af009b8..4f63c98 100644
                inputSpecsBuilder_ = 
                  com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                     getInputSpecsFieldBuilder() : null;
-@@ -4282,7 +4339,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
+@@ -4373,7 +4430,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
            if (!other.outputSpecs_.isEmpty()) {
              if (outputSpecs_.isEmpty()) {
                outputSpecs_ = other.outputSpecs_;
@@ -477,7 +753,7 @@ index af009b8..4f63c98 100644
              } else {
                ensureOutputSpecsIsMutable();
                outputSpecs_.addAll(other.outputSpecs_);
-@@ -4295,7 +4352,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
+@@ -4386,7 +4443,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
                outputSpecsBuilder_.dispose();
                outputSpecsBuilder_ = null;
                outputSpecs_ = other.outputSpecs_;
@@ -486,7 +762,7 @@ index af009b8..4f63c98 100644
                outputSpecsBuilder_ = 
                  com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                     getOutputSpecsFieldBuilder() : null;
-@@ -4308,7 +4365,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
+@@ -4399,7 +4456,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
            if (!other.groupedInputSpecs_.isEmpty()) {
              if (groupedInputSpecs_.isEmpty()) {
                groupedInputSpecs_ = other.groupedInputSpecs_;
@@ -495,7 +771,7 @@ index af009b8..4f63c98 100644
              } else {
                ensureGroupedInputSpecsIsMutable();
                groupedInputSpecs_.addAll(other.groupedInputSpecs_);
-@@ -4321,7 +4378,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
+@@ -4412,7 +4469,7 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
                groupedInputSpecsBuilder_.dispose();
                groupedInputSpecsBuilder_ = null;
                groupedInputSpecs_ = other.groupedInputSpecs_;
@@ -504,7 +780,7 @@ index af009b8..4f63c98 100644
                groupedInputSpecsBuilder_ = 
                  com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                     getGroupedInputSpecsFieldBuilder() : null;
-@@ -4514,13 +4571,46 @@ public Builder setDagNameBytes(
+@@ -4605,13 +4662,46 @@ public Builder setDagNameBytes(
          return this;
        }
  
@@ -552,7 +828,7 @@ index af009b8..4f63c98 100644
        }
        /**
         * <code>optional string vertex_name = 3;</code>
-@@ -4560,7 +4650,7 @@ public Builder setVertexName(
+@@ -4651,7 +4741,7 @@ public Builder setVertexName(
          if (value == null) {
      throw new NullPointerException();
    }
@@ -561,7 +837,7 @@ index af009b8..4f63c98 100644
          vertexName_ = value;
          onChanged();
          return this;
-@@ -4569,7 +4659,7 @@ public Builder setVertexName(
+@@ -4660,7 +4750,7 @@ public Builder setVertexName(
         * <code>optional string vertex_name = 3;</code>
         */
        public Builder clearVertexName() {
@@ -570,7 +846,7 @@ index af009b8..4f63c98 100644
          vertexName_ = getDefaultInstance().getVertexName();
          onChanged();
          return this;
-@@ -4582,7 +4672,7 @@ public Builder setVertexNameBytes(
+@@ -4673,7 +4763,7 @@ public Builder setVertexNameBytes(
          if (value == null) {
      throw new NullPointerException();
    }
@@ -579,7 +855,7 @@ index af009b8..4f63c98 100644
          vertexName_ = value;
          onChanged();
          return this;
-@@ -4596,7 +4686,7 @@ public Builder setVertexNameBytes(
+@@ -4687,7 +4777,7 @@ public Builder setVertexNameBytes(
         * <code>optional .EntityDescriptorProto processor_descriptor = 4;</code>
         */
        public boolean hasProcessorDescriptor() {
@@ -588,7 +864,7 @@ index af009b8..4f63c98 100644
        }
        /**
         * <code>optional .EntityDescriptorProto processor_descriptor = 4;</code>
-@@ -4621,7 +4711,7 @@ public Builder setProcessorDescriptor(org.apache.hadoop.hive.llap.daemon.rpc.Lla
+@@ -4712,7 +4802,7 @@ public Builder setProcessorDescriptor(org.apache.hadoop.hive.llap.daemon.rpc.Lla
          } else {
            processorDescriptorBuilder_.setMessage(value);
          }
@@ -597,7 +873,7 @@ index af009b8..4f63c98 100644
          return this;
        }
        /**
-@@ -4635,7 +4725,7 @@ public Builder setProcessorDescriptor(
+@@ -4726,7 +4816,7 @@ public Builder setProcessorDescriptor(
          } else {
            processorDescriptorBuilder_.setMessage(builderForValue.build());
          }
@@ -606,7 +882,7 @@ index af009b8..4f63c98 100644
          return this;
        }
        /**
-@@ -4643,7 +4733,7 @@ public Builder setProcessorDescriptor(
+@@ -4734,7 +4824,7 @@ public Builder setProcessorDescriptor(
         */
        public Builder mergeProcessorDescriptor(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.EntityDescriptorProto value) {
          if (processorDescriptorBuilder_ == null) {
@@ -615,7 +891,7 @@ index af009b8..4f63c98 100644
                processorDescriptor_ != org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.EntityDescriptorProto.getDefaultInstance()) {
              processorDescriptor_ =
                org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.EntityDescriptorProto.newBuilder(processorDescriptor_).mergeFrom(value).buildPartial();
-@@ -4654,7 +4744,7 @@ public Builder mergeProcessorDescriptor(org.apache.hadoop.hive.llap.daemon.rpc.L
+@@ -4745,7 +4835,7 @@ public Builder mergeProcessorDescriptor(org.apache.hadoop.hive.llap.daemon.rpc.L
          } else {
            processorDescriptorBuilder_.mergeFrom(value);
          }
@@ -624,7 +900,7 @@ index af009b8..4f63c98 100644
          return this;
        }
        /**
-@@ -4667,14 +4757,14 @@ public Builder clearProcessorDescriptor() {
+@@ -4758,14 +4848,14 @@ public Builder clearProcessorDescriptor() {
          } else {
            processorDescriptorBuilder_.clear();
          }
@@ -641,7 +917,7 @@ index af009b8..4f63c98 100644
          onChanged();
          return getProcessorDescriptorFieldBuilder().getBuilder();
        }
-@@ -4709,9 +4799,9 @@ public Builder clearProcessorDescriptor() {
+@@ -4800,9 +4890,9 @@ public Builder clearProcessorDescriptor() {
        private java.util.List<org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.IOSpecProto> inputSpecs_ =
          java.util.Collections.emptyList();
        private void ensureInputSpecsIsMutable() {
@@ -653,7 +929,7 @@ index af009b8..4f63c98 100644
           }
        }
  
-@@ -4860,7 +4950,7 @@ public Builder addAllInputSpecs(
+@@ -4951,7 +5041,7 @@ public Builder addAllInputSpecs(
        public Builder clearInputSpecs() {
          if (inputSpecsBuilder_ == null) {
            inputSpecs_ = java.util.Collections.emptyList();
@@ -662,7 +938,7 @@ index af009b8..4f63c98 100644
            onChanged();
          } else {
            inputSpecsBuilder_.clear();
-@@ -4937,7 +5027,7 @@ public Builder removeInputSpecs(int index) {
+@@ -5028,7 +5118,7 @@ public Builder removeInputSpecs(int index) {
            inputSpecsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
                org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.IOSpecProto, org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.IOSpecProto.Builder, org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.IOSpecProtoOrBuilder>(
                    inputSpecs_,
@@ -671,7 +947,7 @@ index af009b8..4f63c98 100644
                    getParentForChildren(),
                    isClean());
            inputSpecs_ = null;
-@@ -4949,9 +5039,9 @@ public Builder removeInputSpecs(int index) {
+@@ -5040,9 +5130,9 @@ public Builder removeInputSpecs(int index) {
        private java.util.List<org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.IOSpecProto> outputSpecs_ =
          java.util.Collections.emptyList();
        private void ensureOutputSpecsIsMutable() {
@@ -683,7 +959,7 @@ index af009b8..4f63c98 100644
           }
        }
  
-@@ -5100,7 +5190,7 @@ public Builder addAllOutputSpecs(
+@@ -5191,7 +5281,7 @@ public Builder addAllOutputSpecs(
        public Builder clearOutputSpecs() {
          if (outputSpecsBuilder_ == null) {
            outputSpecs_ = java.util.Collections.emptyList();
@@ -692,7 +968,7 @@ index af009b8..4f63c98 100644
            onChanged();
          } else {
            outputSpecsBuilder_.clear();
-@@ -5177,7 +5267,7 @@ public Builder removeOutputSpecs(int index) {
+@@ -5268,7 +5358,7 @@ public Builder removeOutputSpecs(int index) {
            outputSpecsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
                org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.IOSpecProto, org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.IOSpecProto.Builder, org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.IOSpecProtoOrBuilder>(
                    outputSpecs_,
@@ -701,7 +977,7 @@ index af009b8..4f63c98 100644
                    getParentForChildren(),
                    isClean());
            outputSpecs_ = null;
-@@ -5189,9 +5279,9 @@ public Builder removeOutputSpecs(int index) {
+@@ -5280,9 +5370,9 @@ public Builder removeOutputSpecs(int index) {
        private java.util.List<org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.GroupInputSpecProto> groupedInputSpecs_ =
          java.util.Collections.emptyList();
        private void ensureGroupedInputSpecsIsMutable() {
@@ -713,7 +989,7 @@ index af009b8..4f63c98 100644
           }
        }
  
-@@ -5340,7 +5430,7 @@ public Builder addAllGroupedInputSpecs(
+@@ -5431,7 +5521,7 @@ public Builder addAllGroupedInputSpecs(
        public Builder clearGroupedInputSpecs() {
          if (groupedInputSpecsBuilder_ == null) {
            groupedInputSpecs_ = java.util.Collections.emptyList();
@@ -722,7 +998,7 @@ index af009b8..4f63c98 100644
            onChanged();
          } else {
            groupedInputSpecsBuilder_.clear();
-@@ -5417,7 +5507,7 @@ public Builder removeGroupedInputSpecs(int index) {
+@@ -5508,7 +5598,7 @@ public Builder removeGroupedInputSpecs(int index) {
            groupedInputSpecsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
                org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.GroupInputSpecProto, org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.GroupInputSpecProto.Builder, org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.GroupInputSpecProtoOrBuilder>(
                    groupedInputSpecs_,
@@ -731,7 +1007,7 @@ index af009b8..4f63c98 100644
                    getParentForChildren(),
                    isClean());
            groupedInputSpecs_ = null;
-@@ -5431,7 +5521,7 @@ public Builder removeGroupedInputSpecs(int index) {
+@@ -5522,7 +5612,7 @@ public Builder removeGroupedInputSpecs(int index) {
         * <code>optional int32 vertex_parallelism = 8;</code>
         */
        public boolean hasVertexParallelism() {
@@ -740,7 +1016,7 @@ index af009b8..4f63c98 100644
        }
        /**
         * <code>optional int32 vertex_parallelism = 8;</code>
-@@ -5443,7 +5533,7 @@ public int getVertexParallelism() {
+@@ -5534,7 +5624,7 @@ public int getVertexParallelism() {
         * <code>optional int32 vertex_parallelism = 8;</code>
         */
        public Builder setVertexParallelism(int value) {
@@ -749,7 +1025,7 @@ index af009b8..4f63c98 100644
          vertexParallelism_ = value;
          onChanged();
          return this;
-@@ -5452,7 +5542,7 @@ public Builder setVertexParallelism(int value) {
+@@ -5543,7 +5633,7 @@ public Builder setVertexParallelism(int value) {
         * <code>optional int32 vertex_parallelism = 8;</code>
         */
        public Builder clearVertexParallelism() {
@@ -758,7 +1034,7 @@ index af009b8..4f63c98 100644
          vertexParallelism_ = 0;
          onChanged();
          return this;
-@@ -5464,7 +5554,7 @@ public Builder clearVertexParallelism() {
+@@ -5555,7 +5645,7 @@ public Builder clearVertexParallelism() {
         * <code>optional int32 fragment_number = 9;</code>
         */
        public boolean hasFragmentNumber() {
@@ -767,7 +1043,7 @@ index af009b8..4f63c98 100644
        }
        /**
         * <code>optional int32 fragment_number = 9;</code>
-@@ -5476,7 +5566,7 @@ public int getFragmentNumber() {
+@@ -5567,7 +5657,7 @@ public int getFragmentNumber() {
         * <code>optional int32 fragment_number = 9;</code>
         */
        public Builder setFragmentNumber(int value) {
@@ -776,7 +1052,7 @@ index af009b8..4f63c98 100644
          fragmentNumber_ = value;
          onChanged();
          return this;
-@@ -5485,7 +5575,7 @@ public Builder setFragmentNumber(int value) {
+@@ -5576,7 +5666,7 @@ public Builder setFragmentNumber(int value) {
         * <code>optional int32 fragment_number = 9;</code>
         */
        public Builder clearFragmentNumber() {
@@ -785,7 +1061,7 @@ index af009b8..4f63c98 100644
          fragmentNumber_ = 0;
          onChanged();
          return this;
-@@ -5497,7 +5587,7 @@ public Builder clearFragmentNumber() {
+@@ -5588,7 +5678,7 @@ public Builder clearFragmentNumber() {
         * <code>optional int32 attempt_number = 10;</code>
         */
        public boolean hasAttemptNumber() {
@@ -794,7 +1070,7 @@ index af009b8..4f63c98 100644
        }
        /**
         * <code>optional int32 attempt_number = 10;</code>
-@@ -5509,7 +5599,7 @@ public int getAttemptNumber() {
+@@ -5600,7 +5690,7 @@ public int getAttemptNumber() {
         * <code>optional int32 attempt_number = 10;</code>
         */
        public Builder setAttemptNumber(int value) {
@@ -803,7 +1079,7 @@ index af009b8..4f63c98 100644
          attemptNumber_ = value;
          onChanged();
          return this;
-@@ -5518,7 +5608,7 @@ public Builder setAttemptNumber(int value) {
+@@ -5609,7 +5699,7 @@ public Builder setAttemptNumber(int value) {
         * <code>optional int32 attempt_number = 10;</code>
         */
        public Builder clearAttemptNumber() {
@@ -812,7 +1088,7 @@ index af009b8..4f63c98 100644
          attemptNumber_ = 0;
          onChanged();
          return this;
-@@ -6419,76 +6509,675 @@ public Builder clearCurrentAttemptStartTime() {
+@@ -6510,76 +6600,675 @@ public Builder clearCurrentAttemptStartTime() {
      // @@protoc_insertion_point(class_scope:FragmentRuntimeInfo)
    }
  
@@ -1541,7 +1817,7 @@ index af009b8..4f63c98 100644
       * <code>optional string user = 6;</code>
       */
      boolean hasUser();
-@@ -8604,20 +9293,19 @@ public Builder mergeFrom(
+@@ -8800,20 +9489,19 @@ public Builder clearSubmissionState() {
    public interface SourceStateUpdatedRequestProtoOrBuilder
        extends com.google.protobuf.MessageOrBuilder {
  
@@ -1569,7 +1845,7 @@ index af009b8..4f63c98 100644
  
      // optional string src_name = 2;
      /**
-@@ -8696,8 +9384,16 @@ private SourceStateUpdatedRequestProto(
+@@ -8892,8 +9580,16 @@ private SourceStateUpdatedRequestProto(
                break;
              }
              case 10: {
@@ -1587,7 +1863,7 @@ index af009b8..4f63c98 100644
                break;
              }
              case 18: {
-@@ -8756,47 +9452,26 @@ public SourceStateUpdatedRequestProto parsePartialFrom(
+@@ -8952,47 +9648,26 @@ public SourceStateUpdatedRequestProto parsePartialFrom(
      }
  
      private int bitField0_;
@@ -1646,7 +1922,7 @@ index af009b8..4f63c98 100644
      }
  
      // optional string src_name = 2;
-@@ -8859,7 +9534,7 @@ public boolean hasState() {
+@@ -9055,7 +9730,7 @@ public boolean hasState() {
      }
  
      private void initFields() {
@@ -1655,7 +1931,7 @@ index af009b8..4f63c98 100644
        srcName_ = "";
        state_ = org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SourceStateProto.S_SUCCEEDED;
      }
-@@ -8876,7 +9551,7 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
+@@ -9072,7 +9747,7 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
                          throws java.io.IOException {
        getSerializedSize();
        if (((bitField0_ & 0x00000001) == 0x00000001)) {
@@ -1664,7 +1940,7 @@ index af009b8..4f63c98 100644
        }
        if (((bitField0_ & 0x00000002) == 0x00000002)) {
          output.writeBytes(2, getSrcNameBytes());
-@@ -8895,7 +9570,7 @@ public int getSerializedSize() {
+@@ -9091,7 +9766,7 @@ public int getSerializedSize() {
        size = 0;
        if (((bitField0_ & 0x00000001) == 0x00000001)) {
          size += com.google.protobuf.CodedOutputStream
@@ -1673,7 +1949,7 @@ index af009b8..4f63c98 100644
        }
        if (((bitField0_ & 0x00000002) == 0x00000002)) {
          size += com.google.protobuf.CodedOutputStream
-@@ -8928,10 +9603,10 @@ public boolean equals(final java.lang.Object obj) {
+@@ -9124,10 +9799,10 @@ public boolean equals(final java.lang.Object obj) {
        org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SourceStateUpdatedRequestProto other = (org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SourceStateUpdatedRequestProto) obj;
  
        boolean result = true;
@@ -1688,7 +1964,7 @@ index af009b8..4f63c98 100644
        }
        result = result && (hasSrcName() == other.hasSrcName());
        if (hasSrcName()) {
-@@ -8956,9 +9631,9 @@ public int hashCode() {
+@@ -9152,9 +9827,9 @@ public int hashCode() {
        }
        int hash = 41;
        hash = (19 * hash) + getDescriptorForType().hashCode();
@@ -1701,7 +1977,7 @@ index af009b8..4f63c98 100644
        }
        if (hasSrcName()) {
          hash = (37 * hash) + SRC_NAME_FIELD_NUMBER;
-@@ -9069,6 +9744,7 @@ private Builder(
+@@ -9265,6 +9940,7 @@ private Builder(
        }
        private void maybeForceBuilderInitialization() {
          if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
@@ -1709,7 +1985,7 @@ index af009b8..4f63c98 100644
          }
        }
        private static Builder create() {
-@@ -9077,7 +9753,11 @@ private static Builder create() {
+@@ -9273,7 +9949,11 @@ private static Builder create() {
  
        public Builder clear() {
          super.clear();
@@ -1722,7 +1998,7 @@ index af009b8..4f63c98 100644
          bitField0_ = (bitField0_ & ~0x00000001);
          srcName_ = "";
          bitField0_ = (bitField0_ & ~0x00000002);
-@@ -9114,7 +9794,11 @@ public Builder clone() {
+@@ -9310,7 +9990,11 @@ public Builder clone() {
          if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
            to_bitField0_ |= 0x00000001;
          }
@@ -1735,7 +2011,7 @@ index af009b8..4f63c98 100644
          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
            to_bitField0_ |= 0x00000002;
          }
-@@ -9139,10 +9823,8 @@ public Builder mergeFrom(com.google.protobuf.Message other) {
+@@ -9335,10 +10019,8 @@ public Builder mergeFrom(com.google.protobuf.Message other) {
  
        public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SourceStateUpdatedRequestProto other) {
          if (other == org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SourceStateUpdatedRequestProto.getDefaultInstance()) return this;
@@ -1748,7 +2024,7 @@ index af009b8..4f63c98 100644
          }
          if (other.hasSrcName()) {
            bitField0_ |= 0x00000002;
-@@ -9179,78 +9861,121 @@ public Builder mergeFrom(
+@@ -9375,78 +10057,121 @@ public Builder mergeFrom(
        }
        private int bitField0_;
  
@@ -1918,7 +2194,7 @@ index af009b8..4f63c98 100644
        }
  
        // optional string src_name = 2;
-@@ -9730,28 +10455,27 @@ public Builder mergeFrom(
+@@ -9926,28 +10651,27 @@ public Builder mergeFrom(
      com.google.protobuf.ByteString
          getQueryIdBytes();
  
@@ -1957,7 +2233,7 @@ index af009b8..4f63c98 100644
       */
      long getDeleteDelay();
    }
-@@ -9812,11 +10536,19 @@ private QueryCompleteRequestProto(
+@@ -10008,11 +10732,19 @@ private QueryCompleteRequestProto(
                break;
              }
              case 18: {
@@ -1979,7 +2255,7 @@ index af009b8..4f63c98 100644
                bitField0_ |= 0x00000004;
                deleteDelay_ = input.readInt64();
                break;
-@@ -9904,60 +10636,39 @@ public boolean hasQueryId() {
+@@ -10100,60 +10832,39 @@ public boolean hasQueryId() {
        }
      }
  
@@ -2055,7 +2331,7 @@ index af009b8..4f63c98 100644
       */
      public long getDeleteDelay() {
        return deleteDelay_;
-@@ -9965,7 +10676,7 @@ public long getDeleteDelay() {
+@@ -10161,7 +10872,7 @@ public long getDeleteDelay() {
  
      private void initFields() {
        queryId_ = "";
@@ -2064,7 +2340,7 @@ index af009b8..4f63c98 100644
        deleteDelay_ = 0L;
      }
      private byte memoizedIsInitialized = -1;
-@@ -9984,10 +10695,10 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
+@@ -10180,10 +10891,10 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
          output.writeBytes(1, getQueryIdBytes());
        }
        if (((bitField0_ & 0x00000002) == 0x00000002)) {
@@ -2077,7 +2353,7 @@ index af009b8..4f63c98 100644
        }
        getUnknownFields().writeTo(output);
      }
-@@ -10004,11 +10715,11 @@ public int getSerializedSize() {
+@@ -10200,11 +10911,11 @@ public int getSerializedSize() {
        }
        if (((bitField0_ & 0x00000002) == 0x00000002)) {
          size += com.google.protobuf.CodedOutputStream
@@ -2091,7 +2367,7 @@ index af009b8..4f63c98 100644
        }
        size += getUnknownFields().getSerializedSize();
        memoizedSerializedSize = size;
-@@ -10038,10 +10749,10 @@ public boolean equals(final java.lang.Object obj) {
+@@ -10234,10 +10945,10 @@ public boolean equals(final java.lang.Object obj) {
          result = result && getQueryId()
              .equals(other.getQueryId());
        }
@@ -2106,7 +2382,7 @@ index af009b8..4f63c98 100644
        }
        result = result && (hasDeleteDelay() == other.hasDeleteDelay());
        if (hasDeleteDelay()) {
-@@ -10065,9 +10776,9 @@ public int hashCode() {
+@@ -10261,9 +10972,9 @@ public int hashCode() {
          hash = (37 * hash) + QUERY_ID_FIELD_NUMBER;
          hash = (53 * hash) + getQueryId().hashCode();
        }
@@ -2119,7 +2395,7 @@ index af009b8..4f63c98 100644
        }
        if (hasDeleteDelay()) {
          hash = (37 * hash) + DELETE_DELAY_FIELD_NUMBER;
-@@ -10174,6 +10885,7 @@ private Builder(
+@@ -10370,6 +11081,7 @@ private Builder(
        }
        private void maybeForceBuilderInitialization() {
          if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
@@ -2127,7 +2403,7 @@ index af009b8..4f63c98 100644
          }
        }
        private static Builder create() {
-@@ -10184,7 +10896,11 @@ public Builder clear() {
+@@ -10380,7 +11092,11 @@ public Builder clear() {
          super.clear();
          queryId_ = "";
          bitField0_ = (bitField0_ & ~0x00000001);
@@ -2140,7 +2416,7 @@ index af009b8..4f63c98 100644
          bitField0_ = (bitField0_ & ~0x00000002);
          deleteDelay_ = 0L;
          bitField0_ = (bitField0_ & ~0x00000004);
-@@ -10223,7 +10939,11 @@ public Builder clone() {
+@@ -10419,7 +11135,11 @@ public Builder clone() {
          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
            to_bitField0_ |= 0x00000002;
          }
@@ -2153,7 +2429,7 @@ index af009b8..4f63c98 100644
          if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
            to_bitField0_ |= 0x00000004;
          }
-@@ -10249,10 +10969,8 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
+@@ -10445,10 +11165,8 @@ public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtoc
            queryId_ = other.queryId_;
            onChanged();
          }
@@ -2166,7 +2442,7 @@ index af009b8..4f63c98 100644
          }
          if (other.hasDeleteDelay()) {
            setDeleteDelay(other.getDeleteDelay());
-@@ -10358,96 +11076,139 @@ public Builder setQueryIdBytes(
+@@ -10554,96 +11272,139 @@ public Builder setQueryIdBytes(
          return this;
        }
  
@@ -2356,7 +2632,7 @@ index af009b8..4f63c98 100644
         */
        public Builder setDeleteDelay(long value) {
          bitField0_ |= 0x00000004;
-@@ -10456,7 +11217,7 @@ public Builder setDeleteDelay(long value) {
+@@ -10652,7 +11413,7 @@ public Builder setDeleteDelay(long value) {
          return this;
        }
        /**
@@ -2365,7 +2641,7 @@ index af009b8..4f63c98 100644
         */
        public Builder clearDeleteDelay() {
          bitField0_ = (bitField0_ & ~0x00000004);
-@@ -10817,47 +11578,31 @@ public Builder mergeFrom(
+@@ -11013,47 +11774,31 @@ public Builder mergeFrom(
    public interface TerminateFragmentRequestProtoOrBuilder
        extends com.google.protobuf.MessageOrBuilder {
  
@@ -2424,7 +2700,7 @@ index af009b8..4f63c98 100644
       */
      com.google.protobuf.ByteString
          getFragmentIdentifierStringBytes();
-@@ -10914,17 +11659,20 @@ private TerminateFragmentRequestProto(
+@@ -11110,17 +11855,20 @@ private TerminateFragmentRequestProto(
                break;
              }
              case 10: {
@@ -2451,7 +2727,7 @@ index af009b8..4f63c98 100644
                fragmentIdentifierString_ = input.readBytes();
                break;
              }
-@@ -10962,109 +11710,45 @@ public TerminateFragmentRequestProto parsePartialFrom(
+@@ -11158,109 +11906,45 @@ public TerminateFragmentRequestProto parsePartialFrom(
        }
      };
  
@@ -2582,7 +2858,7 @@ index af009b8..4f63c98 100644
       */
      public java.lang.String getFragmentIdentifierString() {
        java.lang.Object ref = fragmentIdentifierString_;
-@@ -11081,7 +11765,7 @@ public boolean hasFragmentIdentifierString() {
+@@ -11277,7 +11961,7 @@ public boolean hasFragmentIdentifierString() {
        }
      }
      /**
@@ -2591,7 +2867,7 @@ index af009b8..4f63c98 100644
       */
      public com.google.protobuf.ByteString
          getFragmentIdentifierStringBytes() {
-@@ -11098,8 +11782,7 @@ public boolean hasFragmentIdentifierString() {
+@@ -11294,8 +11978,7 @@ public boolean hasFragmentIdentifierString() {
      }
  
      private void initFields() {
@@ -2601,7 +2877,7 @@ index af009b8..4f63c98 100644
        fragmentIdentifierString_ = "";
      }
      private byte memoizedIsInitialized = -1;
-@@ -11115,13 +11798,10 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
+@@ -11311,13 +11994,10 @@ public void writeTo(com.google.protobuf.CodedOutputStream output)
                          throws java.io.IOException {
        getSerializedSize();
        if (((bitField0_ & 0x00000001) == 0x00000001)) {
@@ -2617,7 +2893,7 @@ index af009b8..4f63c98 100644
        }
        getUnknownFields().writeTo(output);
      }
-@@ -11134,15 +11814,11 @@ public int getSerializedSize() {
+@@ -11330,15 +12010,11 @@ public int getSerializedSize() {
        size = 0;
        if (((bitField0_ & 0x00000001) == 0x00000001)) {
          size += com.google.protobuf.CodedOutputStream
@@ -2635,7 +2911,7 @@ index af009b8..4f63c98 100644
        }
        size += getUnknownFields().getSerializedSize();
        memoizedSerializedSize = size;
-@@ -11167,15 +11843,10 @@ public boolean equals(final java.lang.Object obj) {
+@@ -11363,15 +12039,10 @@ public boolean equals(final java.lang.Object obj) {
        org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.TerminateFragmentRequestProto other = (org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.TerminateFragmentRequestProto) obj;
  
        boolean result = true;
@@ -2655,7 +2931,7 @@ index af009b8..4f63c98 100644
        }
        result = result && (hasFragmentIdentifierString() == other.hasFragmentIdentifierString());
        if (hasFragmentIdentifierString()) {
-@@ -11195,13 +11866,9 @@ public int hashCode() {
+@@ -11391,13 +12062,9 @@ public int hashCode() {
        }
        int hash = 41;
        hash = (19 * hash) + getDescriptorForType().hashCode();
@@ -2672,7 +2948,7 @@ index af009b8..4f63c98 100644
        }
        if (hasFragmentIdentifierString()) {
          hash = (37 * hash) + FRAGMENT_IDENTIFIER_STRING_FIELD_NUMBER;
-@@ -11308,6 +11975,7 @@ private Builder(
+@@ -11504,6 +12171,7 @@ private Builder(
        }
        private void maybeForceBuilderInitialization() {
          if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
@@ -2680,7 +2956,7 @@ index af009b8..4f63c98 100644
          }
        }
        private static Builder create() {
-@@ -11316,12 +11984,14 @@ private static Builder create() {
+@@ -11512,12 +12180,14 @@ private static Builder create() {
  
        public Builder clear() {
          super.clear();
@@ -2699,7 +2975,7 @@ index af009b8..4f63c98 100644
          return this;
        }
  
-@@ -11353,14 +12023,14 @@ public Builder clone() {
+@@ -11549,14 +12219,14 @@ public Builder clone() {
          if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
            to_bitField0_ |= 0x00000001;
          }
@@ -2719,7 +2995,7 @@ index af009b8..4f63c98 100644
          result.fragmentIdentifierString_ = fragmentIdentifierString_;
          result.bitField0_ = to_bitField0_;
          onBuilt();
-@@ -11378,18 +12048,11 @@ public Builder mergeFrom(com.google.protobuf.Message other) {
+@@ -11574,18 +12244,11 @@ public Builder mergeFrom(com.google.protobuf.Message other) {
  
        public Builder mergeFrom(org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.TerminateFragmentRequestProto other) {
          if (other == org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.TerminateFragmentRequestProto.getDefaultInstance()) return this;
@@ -2741,7 +3017,7 @@ index af009b8..4f63c98 100644
            fragmentIdentifierString_ = other.fragmentIdentifierString_;
            onChanged();
          }
-@@ -11420,164 +12083,133 @@ public Builder mergeFrom(
+@@ -11616,164 +12279,133 @@ public Builder mergeFrom(
        }
        private int bitField0_;
  
@@ -2987,7 +3263,7 @@ index af009b8..4f63c98 100644
         */
        public java.lang.String getFragmentIdentifierString() {
          java.lang.Object ref = fragmentIdentifierString_;
-@@ -11591,7 +12223,7 @@ public boolean hasFragmentIdentifierString() {
+@@ -11787,7 +12419,7 @@ public boolean hasFragmentIdentifierString() {
          }
        }
        /**
@@ -2996,7 +3272,7 @@ index af009b8..4f63c98 100644
         */
        public com.google.protobuf.ByteString
            getFragmentIdentifierStringBytes() {
-@@ -11607,36 +12239,36 @@ public boolean hasFragmentIdentifierString() {
+@@ -11803,36 +12435,36 @@ public boolean hasFragmentIdentifierString() {
          }
        }
        /**
@@ -3039,7 +3315,7 @@ index af009b8..4f63c98 100644
          fragmentIdentifierString_ = value;
          onChanged();
          return this;
-@@ -13474,6 +14106,11 @@ private BlockingStub(com.google.protobuf.BlockingRpcChannel channel) {
+@@ -13670,6 +14302,11 @@ private BlockingStub(com.google.protobuf.BlockingRpcChannel channel) {
      com.google.protobuf.GeneratedMessage.FieldAccessorTable
        internal_static_FragmentRuntimeInfo_fieldAccessorTable;
    private static com.google.protobuf.Descriptors.Descriptor
@@ -3051,21 +3327,10 @@ index af009b8..4f63c98 100644
      internal_static_SubmitWorkRequestProto_descriptor;
    private static
      com.google.protobuf.GeneratedMessage.FieldAccessorTable
-@@ -13532,66 +14169,71 @@ private BlockingStub(com.google.protobuf.BlockingRpcChannel channel) {
-       descriptor;
-   static {
-     java.lang.String[] descriptorData = {
--      "\n\030LlapDaemonProtocol.proto\"9\n\020UserPayloa" +
--      "dProto\022\024\n\014user_payload\030\001 \001(\014\022\017\n\007version\030" +
--      "\002 \001(\005\"j\n\025EntityDescriptorProto\022\022\n\nclass_" +
--      "name\030\001 \001(\t\022\'\n\014user_payload\030\002 \001(\0132\021.UserP" +
--      "ayloadProto\022\024\n\014history_text\030\003 \001(\014\"x\n\013IOS" +
--      "pecProto\022\035\n\025connected_vertex_name\030\001 \001(\t\022" +
--      "-\n\rio_descriptor\030\002 \001(\0132\026.EntityDescripto" +
--      "rProto\022\033\n\023physical_edge_count\030\003 \001(\005\"z\n\023G" +
--      "roupInputSpecProto\022\022\n\ngroup_name\030\001 \001(\t\022\026" +
--      "\n\016group_vertices\030\002 \003(\t\0227\n\027merged_input_d",
--      "escriptor\030\003 \001(\0132\026.EntityDescriptorProto\"" +
+@@ -13739,58 +14376,62 @@ private BlockingStub(com.google.protobuf.BlockingRpcChannel channel) {
+       "roupInputSpecProto\022\022\n\ngroup_name\030\001 \001(\t\022\026" +
+       "\n\016group_vertices\030\002 \003(\t\0227\n\027merged_input_d",
+       "escriptor\030\003 \001(\0132\026.EntityDescriptorProto\"" +
 -      "\333\002\n\021FragmentSpecProto\022\"\n\032fragment_identi" +
 -      "fier_string\030\001 \001(\t\022\020\n\010dag_name\030\002 \001(\t\022\023\n\013v" +
 -      "ertex_name\030\003 \001(\t\0224\n\024processor_descriptor" +
@@ -3088,102 +3353,95 @@ index af009b8..4f63c98 100644
 -      "ing\030\007 \001(\t\022\032\n\022app_attempt_number\030\010 \001(\005\022)\n" +
 -      "\rfragment_spec\030\t \001(\0132\022.FragmentSpecProto" +
 -      "\0223\n\025fragment_runtime_info\030\n \001(\0132\024.Fragme" +
--      "ntRuntimeInfo\"\031\n\027SubmitWorkResponseProto" +
--      "\"f\n\036SourceStateUpdatedRequestProto\022\020\n\010da" +
--      "g_name\030\001 \001(\t\022\020\n\010src_name\030\002 \001(\t\022 \n\005state\030" +
--      "\003 \001(\0162\021.SourceStateProto\"!\n\037SourceStateU" +
--      "pdatedResponseProto\"X\n\031QueryCompleteRequ" +
--      "estProto\022\020\n\010query_id\030\001 \001(\t\022\020\n\010dag_name\030\002" +
--      " \001(\t\022\027\n\014delete_delay\030\003 \001(\003:\0010\"\034\n\032QueryCo",
--      "mpleteResponseProto\"g\n\035TerminateFragment" +
--      "RequestProto\022\020\n\010query_id\030\001 \001(\t\022\020\n\010dag_na" +
--      "me\030\002 \001(\t\022\"\n\032fragment_identifier_string\030\007" +
--      " \001(\t\" \n\036TerminateFragmentResponseProto\"\026" +
--      "\n\024GetTokenRequestProto\"&\n\025GetTokenRespon" +
--      "seProto\022\r\n\005token\030\001 \001(\014*2\n\020SourceStatePro" +
--      "to\022\017\n\013S_SUCCEEDED\020\001\022\r\n\tS_RUNNING\020\0022\316\002\n\022L" +
+-      "ntRuntimeInfo\"J\n\027SubmitWorkResponseProto" +
+-      "\022/\n\020submission_state\030\001 \001(\0162\025.SubmissionS" +
+-      "tateProto\"f\n\036SourceStateUpdatedRequestPr" +
+-      "oto\022\020\n\010dag_name\030\001 \001(\t\022\020\n\010src_name\030\002 \001(\t\022" +
++      "\353\002\n\021FragmentSpecProto\022\"\n\032fragment_identi" +
++      "fier_string\030\001 \001(\t\022\020\n\010dag_name\030\002 \001(\t\022\016\n\006d" +
++      "ag_id\030\013 \001(\005\022\023\n\013vertex_name\030\003 \001(\t\0224\n\024proc" +
++      "essor_descriptor\030\004 \001(\0132\026.EntityDescripto" +
++      "rProto\022!\n\013input_specs\030\005 \003(\0132\014.IOSpecProt" +
++      "o\022\"\n\014output_specs\030\006 \003(\0132\014.IOSpecProto\0221\n" +
++      "\023grouped_input_specs\030\007 \003(\0132\024.GroupInputS" +
++      "pecProto\022\032\n\022vertex_parallelism\030\010 \001(\005\022\027\n\017" +
++      "fragment_number\030\t \001(\005\022\026\n\016attempt_number\030",
++      "\n \001(\005\"\344\001\n\023FragmentRuntimeInfo\022#\n\033num_sel" +
++      "f_and_upstream_tasks\030\001 \001(\005\022-\n%num_self_a" +
++      "nd_upstream_completed_tasks\030\002 \001(\005\022\033\n\023wit" +
++      "hin_dag_priority\030\003 \001(\005\022\026\n\016dag_start_time" +
++      "\030\004 \001(\003\022 \n\030first_attempt_start_time\030\005 \001(\003" +
++      "\022\"\n\032current_attempt_start_time\030\006 \001(\003\"F\n\024" +
++      "QueryIdentifierProto\022\026\n\016app_identifier\030\001" +
++      " \001(\t\022\026\n\016dag_identifier\030\002 \001(\005\"\266\002\n\026SubmitW" +
++      "orkRequestProto\022\033\n\023container_id_string\030\001" +
++      " \001(\t\022\017\n\007am_host\030\002 \001(\t\022\017\n\007am_port\030\003 \001(\005\022\030",
++      "\n\020token_identifier\030\004 \001(\t\022\032\n\022credentials_" +
++      "binary\030\005 \001(\014\022\014\n\004user\030\006 \001(\t\022\035\n\025applicatio" +
++      "n_id_string\030\007 \001(\t\022\032\n\022app_attempt_number\030" +
++      "\010 \001(\005\022)\n\rfragment_spec\030\t \001(\0132\022.FragmentS" +
++      "pecProto\0223\n\025fragment_runtime_info\030\n \001(\0132" +
++      "\024.FragmentRuntimeInfo\"J\n\027SubmitWorkRespo" +
++      "nseProto\022/\n\020submission_state\030\001 \001(\0162\025.Sub" +
++      "missionStateProto\"\205\001\n\036SourceStateUpdated" +
++      "RequestProto\022/\n\020query_identifier\030\001 \001(\0132\025" +
++      ".QueryIdentifierProto\022\020\n\010src_name\030\002 \001(\t\022",
+       " \n\005state\030\003 \001(\0162\021.SourceStateProto\"!\n\037Sou" +
+-      "rceStateUpdatedResponseProto\"X\n\031QueryCom" +
+-      "pleteRequestProto\022\020\n\010query_id\030\001 \001(\t\022\020\n\010d",
+-      "ag_name\030\002 \001(\t\022\027\n\014delete_delay\030\003 \001(\003:\0010\"\034" +
+-      "\n\032QueryCompleteResponseProto\"g\n\035Terminat" +
+-      "eFragmentRequestProto\022\020\n\010query_id\030\001 \001(\t\022" +
+-      "\020\n\010dag_name\030\002 \001(\t\022\"\n\032fragment_identifier" +
+-      "_string\030\007 \001(\t\" \n\036TerminateFragmentRespon" +
+-      "seProto\"\026\n\024GetTokenRequestProto\"&\n\025GetTo" +
+-      "kenResponseProto\022\r\n\005token\030\001 \001(\014*2\n\020Sourc" +
+-      "eStateProto\022\017\n\013S_SUCCEEDED\020\001\022\r\n\tS_RUNNIN" +
+-      "G\020\002*E\n\024SubmissionStateProto\022\014\n\010ACCEPTED\020" +
+-      "\001\022\014\n\010REJECTED\020\002\022\021\n\rEVICTED_OTHER\020\0032\316\002\n\022L",
 -      "lapDaemonProtocol\022?\n\nsubmitWork\022\027.Submit" +
 -      "WorkRequestProto\032\030.SubmitWorkResponsePro" +
--      "to\022W\n\022sourceStateUpdated\022\037.SourceStateUp",
+-      "to\022W\n\022sourceStateUpdated\022\037.SourceStateUp" +
 -      "datedRequestProto\032 .SourceStateUpdatedRe" +
 -      "sponseProto\022H\n\rqueryComplete\022\032.QueryComp" +
 -      "leteRequestProto\032\033.QueryCompleteResponse" +
 -      "Proto\022T\n\021terminateFragment\022\036.TerminateFr" +
 -      "agmentRequestProto\032\037.TerminateFragmentRe" +
 -      "sponseProto2]\n\026LlapManagementProtocol\022C\n" +
--      "\022getDelegationToken\022\025.GetTokenRequestPro" +
+-      "\022getDelegationToken\022\025.GetTokenRequestPro",
 -      "to\032\026.GetTokenResponseProtoBH\n&org.apache" +
 -      ".hadoop.hive.llap.daemon.rpcB\030LlapDaemon" +
 -      "ProtocolProtos\210\001\001\240\001\001"
-+      "\n1llap-server/src/protobuf/LlapDaemonPro" +
-+      "tocol.proto\"9\n\020UserPayloadProto\022\024\n\014user_" +
-+      "payload\030\001 \001(\014\022\017\n\007version\030\002 \001(\005\"j\n\025Entity" +
-+      "DescriptorProto\022\022\n\nclass_name\030\001 \001(\t\022\'\n\014u" +
-+      "ser_payload\030\002 \001(\0132\021.UserPayloadProto\022\024\n\014" +
-+      "history_text\030\003 \001(\014\"x\n\013IOSpecProto\022\035\n\025con" +
-+      "nected_vertex_name\030\001 \001(\t\022-\n\rio_descripto" +
-+      "r\030\002 \001(\0132\026.EntityDescriptorProto\022\033\n\023physi" +
-+      "cal_edge_count\030\003 \001(\005\"z\n\023GroupInputSpecPr" +
-+      "oto\022\022\n\ngroup_name\030\001 \001(\t\022\026\n\016group_vertice",
-+      "s\030\002 \003(\t\0227\n\027merged_input_descriptor\030\003 \001(\013" +
-+      "2\026.EntityDescriptorProto\"\353\002\n\021FragmentSpe" +
-+      "cProto\022\"\n\032fragment_identifier_string\030\001 \001" +
-+      "(\t\022\020\n\010dag_name\030\002 \001(\t\022\016\n\006dag_id\030\013 \001(\005\022\023\n\013" +
-+      "vertex_name\030\003 \001(\t\0224\n\024processor_descripto" +
-+      "r\030\004 \001(\0132\026.EntityDescriptorProto\022!\n\013input" +
-+      "_specs\030\005 \003(\0132\014.IOSpecProto\022\"\n\014output_spe" +
-+      "cs\030\006 \003(\0132\014.IOSpecProto\0221\n\023grouped_input_" +
-+      "specs\030\007 \003(\0132\024.GroupInputSpecProto\022\032\n\022ver" +
-+      "tex_parallelism\030\010 \001(\005\022\027\n\017fragment_number",
-+      "\030\t \001(\005\022\026\n\016attempt_number\030\n \001(\005\"\344\001\n\023Fragm" +
-+      "entRuntimeInfo\022#\n\033num_self_and_upstream_" +
-+      "tasks\030\001 \001(\005\022-\n%num_self_and_upstream_com" +
-+      "pleted_tasks\030\002 \001(\005\022\033\n\023within_dag_priorit" +
-+      "y\030\003 \001(\005\022\026\n\016dag_start_time\030\004 \001(\003\022 \n\030first" +
-+      "_attempt_start_time\030\005 \001(\003\022\"\n\032current_att" +
-+      "empt_start_time\030\006 \001(\003\"F\n\024QueryIdentifier" +
-+      "Proto\022\026\n\016app_identifier\030\001 \001(\t\022\026\n\016dag_ide" +
-+      "ntifier\030\002 \001(\005\"\266\002\n\026SubmitWorkRequestProto" +
-+      "\022\033\n\023container_id_string\030\001 \001(\t\022\017\n\007am_host",
-+      "\030\002 \001(\t\022\017\n\007am_port\030\003 \001(\005\022\030\n\020token_identif" +
-+      "ier\030\004 \001(\t\022\032\n\022credentials_binary\030\005 \001(\014\022\014\n" +
-+      "\004user\030\006 \001(\t\022\035\n\025application_id_string\030\007 \001" +
-+      "(\t\022\032\n\022app_attempt_number\030\010 \001(\005\022)\n\rfragme" +
-+      "nt_spec\030\t \001(\0132\022.FragmentSpecProto\0223\n\025fra" +
-+      "gment_runtime_info\030\n \001(\0132\024.FragmentRunti" +
-+      "meInfo\"\031\n\027SubmitWorkResponseProto\"\205\001\n\036So" +
-+      "urceStateUpdatedRequestProto\022/\n\020query_id" +
-+      "entifier\030\001 \001(\0132\025.QueryIdentifierProto\022\020\n" +
-+      "\010src_name\030\002 \001(\t\022 \n\005state\030\003 \001(\0162\021.SourceS",
-+      "tateProto\"!\n\037SourceStateUpdatedResponseP" +
-+      "roto\"w\n\031QueryCompleteRequestProto\022\020\n\010que" +
-+      "ry_id\030\001 \001(\t\022/\n\020query_identifier\030\002 \001(\0132\025." +
-+      "QueryIdentifierProto\022\027\n\014delete_delay\030\004 \001" +
-+      "(\003:\0010\"\034\n\032QueryCompleteResponseProto\"t\n\035T" +
-+      "erminateFragmentRequestProto\022/\n\020query_id" +
-+      "entifier\030\001 \001(\0132\025.QueryIdentifierProto\022\"\n" +
-+      "\032fragment_identifier_string\030\002 \001(\t\" \n\036Ter" +
-+      "minateFragmentResponseProto\"\026\n\024GetTokenR" +
-+      "equestProto\"&\n\025GetTokenResponseProto\022\r\n\005",
-+      "token\030\001 \001(\014*2\n\020SourceStateProto\022\017\n\013S_SUC" +
-+      "CEEDED\020\001\022\r\n\tS_RUNNING\020\0022\316\002\n\022LlapDaemonPr" +
-+      "otocol\022?\n\nsubmitWork\022\027.SubmitWorkRequest" +
-+      "Proto\032\030.SubmitWorkResponseProto\022W\n\022sourc" +
-+      "eStateUpdated\022\037.SourceStateUpdatedReques" +
-+      "tProto\032 .SourceStateUpdatedResponseProto" +
-+      "\022H\n\rqueryComplete\022\032.QueryCompleteRequest" +
-+      "Proto\032\033.QueryCompleteResponseProto\022T\n\021te" +
-+      "rminateFragment\022\036.TerminateFragmentReque" +
-+      "stProto\032\037.TerminateFragmentResponseProto",
-+      "2]\n\026LlapManagementProtocol\022C\n\022getDelegat" +
-+      "ionToken\022\025.GetTokenRequestProto\032\026.GetTok" +
-+      "enResponseProtoBH\n&org.apache.hadoop.hiv" +
-+      "e.llap.daemon.rpcB\030LlapDaemonProtocolPro" +
-+      "tos\210\001\001\240\001\001"
++      "rceStateUpdatedResponseProto\"w\n\031QueryCom" +
++      "pleteRequestProto\022\020\n\010query_id\030\001 \001(\t\022/\n\020q" +
++      "uery_identifier\030\002 \001(\0132\025.QueryIdentifierP" +
++      "roto\022\027\n\014delete_delay\030\004 \001(\003:\0010\"\034\n\032QueryCo" +
++      "mpleteResponseProto\"t\n\035TerminateFragment" +
++      "RequestProto\022/\n\020query_identifier\030\001 \001(\0132\025" +
++      ".QueryIdentifierProto\022\"\n\032fragment_identi" +
++      "fier_string\030\002 \001(\t\" \n\036TerminateFragmentRe" +
++      "sponseProto\"\026\n\024GetTokenRequestProto\"&\n\025G",
++      "etTokenResponseProto\022\r\n\005token\030\001 \001(\014*2\n\020S" +
++      "ourceStateProto\022\017\n\013S_SUCCEEDED\020\001\022\r\n\tS_RU" +
++      "NNING\020\002*E\n\024SubmissionStateProto\022\014\n\010ACCEP" +
++      "TED\020\001\022\014\n\010REJECTED\020\002\022\021\n\rEVICTED_OTHER\020\0032\316" +
++      "\002\n\022LlapDaemonProtocol\022?\n\nsubmitWork\022\027.Su" +
++      "bmitWorkRequestProto\032\030.SubmitWorkRespons" +
++      "eProto\022W\n\022sourceStateUpdated\022\037.SourceSta" +
++      "teUpdatedRequestProto\032 .SourceStateUpdat" +
++      "edResponseProto\022H\n\rqueryComplete\022\032.Query" +
++      "CompleteRequestProto\032\033.QueryCompleteResp",
++      "onseProto\022T\n\021terminateFragment\022\036.Termina" +
++      "teFragmentRequestProto\032\037.TerminateFragme" +
++      "ntResponseProto2]\n\026LlapManagementProtoco" +
++      "l\022C\n\022getDelegationToken\022\025.GetTokenReques" +
++      "tProto\032\026.GetTokenResponseProtoBH\n&org.ap" +
++      "ache.hadoop.hive.llap.daemon.rpcB\030LlapDa" +
++      "emonProtocolProtos\210\001\001\240\001\001"
      };
      com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
        new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
-@@ -13627,69 +14269,75 @@ private BlockingStub(com.google.protobuf.BlockingRpcChannel channel) {
+@@ -13826,69 +14467,75 @@ private BlockingStub(com.google.protobuf.BlockingRpcChannel channel) {
            internal_static_FragmentSpecProto_fieldAccessorTable = new
              com.google.protobuf.GeneratedMessage.FieldAccessorTable(
                internal_static_FragmentSpecProto_descriptor,
@@ -3214,7 +3472,7 @@ index af009b8..4f63c98 100644
            internal_static_SubmitWorkResponseProto_fieldAccessorTable = new
              com.google.protobuf.GeneratedMessage.FieldAccessorTable(
                internal_static_SubmitWorkResponseProto_descriptor,
-               new java.lang.String[] { });
+               new java.lang.String[] { "SubmissionState", });
            internal_static_SourceStateUpdatedRequestProto_descriptor =
 -            getDescriptor().getMessageTypes().get(8);
 +            getDescriptor().getMessageTypes().get(9);
@@ -3517,27 +3775,44 @@ index f6711d8..d1ec715 100644
  
      synchronized void setNextHeartbeatTime(long nextTime) {
 diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/ContainerRunnerImpl.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/ContainerRunnerImpl.java
-index 2139bb0..d6b2234 100644
+index 0d85671..a2a55cc 100644
 --- llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/ContainerRunnerImpl.java
 +++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/ContainerRunnerImpl.java
-@@ -28,7 +28,6 @@
- import org.apache.hadoop.conf.Configuration;
- import org.apache.hadoop.hive.conf.HiveConf;
- import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
--import org.apache.hadoop.hive.llap.configuration.LlapConfiguration;
- import org.apache.hadoop.hive.llap.daemon.ContainerRunner;
- import org.apache.hadoop.hive.llap.daemon.FragmentCompletionHandler;
- import org.apache.hadoop.hive.llap.daemon.HistoryLogger;
-@@ -147,7 +146,7 @@ protected void serviceStop() throws Exception {
+@@ -60,6 +60,8 @@
+ import org.apache.tez.dag.api.TezConfiguration;
+ import org.apache.tez.dag.api.TezConstants;
+ import org.apache.tez.dag.records.TezTaskAttemptID;
++import org.apache.tez.hadoop.shim.HadoopShim;
++import org.apache.tez.hadoop.shim.HadoopShimsLoader;
+ import org.apache.tez.runtime.api.impl.ExecutionContextImpl;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+@@ -85,6 +87,7 @@
+   private final Configuration conf;
+   private final TaskRunnerCallable.ConfParams confParams;
+   private final KilledTaskHandler killedTaskHandler = new KilledTaskHandlerImpl();
++  private final HadoopShim tezHadoopShim;
+ 
+   public ContainerRunnerImpl(Configuration conf, int numExecutors, int waitQueueSize,
+       boolean enablePreemption, String[] localDirsBase, AtomicReference<Integer> localShufflePort,
+@@ -122,6 +125,7 @@ public ContainerRunnerImpl(Configuration conf, int numExecutors, int waitQueueSi
+         conf.getInt(TezConfiguration.TEZ_TASK_MAX_EVENTS_PER_HEARTBEAT,
+             TezConfiguration.TEZ_TASK_MAX_EVENTS_PER_HEARTBEAT_DEFAULT)
+     );
++    tezHadoopShim = new HadoopShimsLoader(conf).getHadoopShim();
+ 
+     LOG.info("ContainerRunnerImpl config: " +
+             "memoryPerExecutorDerviced=" + memoryPerExecutor
+@@ -149,7 +153,7 @@ protected void serviceStop() throws Exception {
    @Override
-   public void submitWork(SubmitWorkRequestProto request) throws IOException {
+   public SubmitWorkResponseProto submitWork(SubmitWorkRequestProto request) throws IOException {
      HistoryLogger.logFragmentStart(request.getApplicationIdString(), request.getContainerIdString(),
 -        localAddress.get().getHostName(), request.getFragmentSpec().getDagName(),
 +        localAddress.get().getHostName(), request.getFragmentSpec().getDagName(), request.getFragmentSpec().getDagId(),
          request.getFragmentSpec().getVertexName(), request.getFragmentSpec().getFragmentNumber(),
          request.getFragmentSpec().getAttemptNumber());
      if (LOG.isInfoEnabled()) {
-@@ -168,8 +167,10 @@ public void submitWork(SubmitWorkRequestProto request) throws IOException {
+@@ -172,8 +176,10 @@ public SubmitWorkResponseProto submitWork(SubmitWorkRequestProto request) throws
            fragmentSpec.getFragmentIdentifierString());
        int dagIdentifier = taskAttemptId.getTaskID().getVertexID().getDAGId().getId();
  
@@ -3549,7 +3824,16 @@ index 2139bb0..d6b2234 100644
                dagIdentifier,
                fragmentSpec.getVertexName(), fragmentSpec.getFragmentNumber(),
                fragmentSpec.getAttemptNumber(), request.getUser(), request.getFragmentSpec());
-@@ -224,7 +225,9 @@ public LlapExecutionContext(String hostname, QueryTracker queryTracker) {
+@@ -205,7 +211,7 @@ public SubmitWorkResponseProto submitWork(SubmitWorkRequestProto request) throws
+       TaskRunnerCallable callable = new TaskRunnerCallable(request, fragmentInfo, new Configuration(getConfig()),
+           new LlapExecutionContext(localAddress.get().getHostName(), queryTracker), env,
+           credentials, memoryPerExecutor, amReporter, confParams, metrics, killedTaskHandler,
+-          this);
++          this, tezHadoopShim);
+       submissionState = executorService.schedule(callable);
+ 
+       if (LOG.isInfoEnabled()) {
+@@ -239,28 +245,37 @@ public LlapExecutionContext(String hostname, QueryTracker queryTracker) {
  
      @Override
      public void initializeHook(TezProcessor source) {
@@ -3560,19 +3844,22 @@ index 2139bb0..d6b2234 100644
            HiveConf.getVar(source.getConf(), HiveConf.ConfVars.HIVEQUERYID));
      }
    }
-@@ -232,19 +235,25 @@ public void initializeHook(TezProcessor source) {
+ 
    @Override
-   public void sourceStateUpdated(SourceStateUpdatedRequestProto request) {
+-  public SourceStateUpdatedResponseProto sourceStateUpdated(SourceStateUpdatedRequestProto request) {
++  public SourceStateUpdatedResponseProto sourceStateUpdated(
++      SourceStateUpdatedRequestProto request) {
      LOG.info("Processing state update: " + stringifySourceStateUpdateRequest(request));
 -    queryTracker.registerSourceStateChange(request.getDagName(), request.getSrcName(),
 +    queryTracker.registerSourceStateChange(
 +        new QueryIdentifier(request.getQueryIdentifier().getAppIdentifier(),
 +            request.getQueryIdentifier().getDagIdentifier()), request.getSrcName(),
          request.getState());
+     return SourceStateUpdatedResponseProto.getDefaultInstance();
    }
  
    @Override
-   public void queryComplete(QueryCompleteRequestProto request) {
+   public QueryCompleteResponseProto queryComplete(QueryCompleteRequestProto request) {
 -    LOG.info("Processing queryComplete notification for {}", request.getDagName());
 +    QueryIdentifier queryIdentifier =
 +        new QueryIdentifier(request.getQueryIdentifier().getAppIdentifier(),
@@ -3591,7 +3878,7 @@ index 2139bb0..d6b2234 100644
            fragmentInfo.getFragmentIdentifierString());
        executorService.killFragment(fragmentInfo.getFragmentIdentifierString());
      }
-@@ -258,7 +267,9 @@ public void terminateFragment(TerminateFragmentRequestProto request) {
+@@ -276,7 +291,9 @@ public TerminateFragmentResponseProto terminateFragment(TerminateFragmentRequest
  
    private String stringifySourceStateUpdateRequest(SourceStateUpdatedRequestProto request) {
      StringBuilder sb = new StringBuilder();
@@ -3602,7 +3889,7 @@ index 2139bb0..d6b2234 100644
          .append(", ").append("sourceName=").append(request.getSrcName())
          .append(", ").append("state=").append(request.getState());
      return sb.toString();
-@@ -324,14 +335,14 @@ public void fragmentComplete(QueryFragmentInfo fragmentInfo) {
+@@ -342,14 +359,14 @@ public void fragmentComplete(QueryFragmentInfo fragmentInfo) {
    }
  
    @Override
@@ -3622,7 +3909,7 @@ index 2139bb0..d6b2234 100644
            fragmentInfo.getFragmentIdentifierString());
        executorService.killFragment(fragmentInfo.getFragmentIdentifierString());
      }
-@@ -341,9 +352,9 @@ public void queryFailed(String queryId, String dagName) {
+@@ -359,9 +376,9 @@ public void queryFailed(String queryId, String dagName) {
  
      @Override
      public void taskKilled(String amLocation, int port, String user,
@@ -3635,10 +3922,10 @@ index 2139bb0..d6b2234 100644
    }
  
 diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapDaemon.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapDaemon.java
-index 7ce8ba0..2801b72 100644
+index ddedfbf..2af1758 100644
 --- llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapDaemon.java
 +++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapDaemon.java
-@@ -424,8 +424,8 @@ public void uncaughtException(Thread t, Throwable e) {
+@@ -435,8 +435,8 @@ public void uncaughtException(Thread t, Throwable e) {
    private class QueryFailedHandlerProxy implements QueryFailedHandler {
  
      @Override
@@ -3649,9 +3936,30 @@ index 7ce8ba0..2801b72 100644
      }
    }
  }
+diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java
+index fc66254..bb9f341 100644
+--- llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java
++++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/LlapTaskReporter.java
+@@ -350,13 +350,15 @@ private TaskStatusUpdateEvent getStatusUpdateEvent(boolean sendCounters) {
+       float progress = 0;
+       if (task.hasInitialized()) {
+         progress = task.getProgress();
++        // TODO HIVE-12449. Make use of progress notifications once Hive starts sending them out.
++        // progressNotified = task.getAndClearProgressNotification();
+         if (sendCounters) {
+           // send these potentially large objects at longer intervals to avoid overloading the AM
+           counters = task.getCounters();
+           stats = task.getTaskStatistics();
+         }
+       }
+-      return new TaskStatusUpdateEvent(counters, progress, stats);
++      return new TaskStatusUpdateEvent(counters, progress, stats, true);
+     }
+ 
+     /**
 diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/QueryIdentifier.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/QueryIdentifier.java
 new file mode 100644
-index 0000000..dfd859b
+index 0000000..96e77e4
 --- /dev/null
 +++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/QueryIdentifier.java
 @@ -0,0 +1,63 @@
@@ -3690,7 +3998,7 @@ index 0000000..dfd859b
 +    if (this == o) {
 +      return true;
 +    }
-+    if (o == null || getClass().isAssignableFrom(o.getClass())) {
++    if (o == null || !getClass().isAssignableFrom(o.getClass())) {
 +      return false;
 +    }
 +
@@ -4025,10 +4333,36 @@ index 6deaefc..0676edd 100644
      }
    }
 diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
-index f03a2ff..b60f71f 100644
+index f03a2ff..ede2a03 100644
 --- llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
 +++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
-@@ -131,7 +131,7 @@ public TaskRunnerCallable(SubmitWorkRequestProto request, QueryFragmentInfo frag
+@@ -51,6 +51,7 @@
+ import org.apache.tez.common.security.JobTokenIdentifier;
+ import org.apache.tez.common.security.TokenCache;
+ import org.apache.tez.dag.api.TezConstants;
++import org.apache.tez.hadoop.shim.HadoopShim;
+ import org.apache.tez.runtime.api.ExecutionContext;
+ import org.apache.tez.runtime.api.impl.TaskSpec;
+ import org.apache.tez.runtime.common.objectregistry.ObjectRegistryImpl;
+@@ -100,6 +101,7 @@
+   private final LlapDaemonExecutorMetrics metrics;
+   private final String requestId;
+   private final String queryId;
++  private final HadoopShim tezHadoopShim;
+   private boolean shouldRunTask = true;
+   final Stopwatch runtimeWatch = new Stopwatch();
+   final Stopwatch killtimerWatch = new Stopwatch();
+@@ -115,7 +117,8 @@ public TaskRunnerCallable(SubmitWorkRequestProto request, QueryFragmentInfo frag
+                      long memoryAvailable, AMReporter amReporter,
+                      ConfParams confParams, LlapDaemonExecutorMetrics metrics,
+                      KilledTaskHandler killedTaskHandler,
+-                     FragmentCompletionHandler fragmentCompleteHandler) {
++                     FragmentCompletionHandler fragmentCompleteHandler,
++                     HadoopShim tezHadoopShim) {
+     this.request = request;
+     this.fragmentInfo = fragmentInfo;
+     this.conf = conf;
+@@ -131,7 +134,7 @@ public TaskRunnerCallable(SubmitWorkRequestProto request, QueryFragmentInfo frag
      // Register with the AMReporter when the callable is setup. Unregister once it starts running.
      if (jobToken != null) {
      this.amReporter.registerTask(request.getAmHost(), request.getAmPort(),
@@ -4037,7 +4371,24 @@ index f03a2ff..b60f71f 100644
      }
      this.metrics = metrics;
      this.requestId = request.getFragmentSpec().getFragmentIdentifierString();
-@@ -297,9 +297,8 @@ public void killTask() {
+@@ -139,6 +142,7 @@ public TaskRunnerCallable(SubmitWorkRequestProto request, QueryFragmentInfo frag
+     this.queryId = request.getFragmentSpec().getDagName();
+     this.killedTaskHandler = killedTaskHandler;
+     this.fragmentCompletionHanler = fragmentCompleteHandler;
++    this.tezHadoopShim = tezHadoopShim;
+   }
+ 
+   public long getStartTime() {
+@@ -216,7 +220,7 @@ public LlapTaskUmbilicalProtocol run() throws Exception {
+               serviceConsumerMetadata, envMap, startedInputsMap, taskReporter, executor,
+               objectRegistry,
+               pid,
+-              executionContext, memoryAvailable, false);
++              executionContext, memoryAvailable, false, tezHadoopShim);
+         }
+       }
+       if (taskRunner == null) {
+@@ -297,9 +301,8 @@ public void killTask() {
     */
    public void reportTaskKilled() {
      killedTaskHandler
@@ -4049,7 +4400,7 @@ index f03a2ff..b60f71f 100644
    }
  
    public boolean canFinish() {
-@@ -428,6 +427,7 @@ public void onSuccess(TaskRunner2Result result) {
+@@ -428,6 +431,7 @@ public void onSuccess(TaskRunner2Result result) {
        HistoryLogger
            .logFragmentEnd(request.getApplicationIdString(), request.getContainerIdString(),
                executionContext.getHostName(), request.getFragmentSpec().getDagName(),
@@ -4057,7 +4408,7 @@ index f03a2ff..b60f71f 100644
                request.getFragmentSpec().getVertexName(),
                request.getFragmentSpec().getFragmentNumber(),
                request.getFragmentSpec().getAttemptNumber(), taskRunnerCallable.threadName,
-@@ -445,6 +445,7 @@ public void onFailure(Throwable t) {
+@@ -445,6 +449,7 @@ public void onFailure(Throwable t) {
        HistoryLogger
            .logFragmentEnd(request.getApplicationIdString(), request.getContainerIdString(),
                executionContext.getHostName(), request.getFragmentSpec().getDagName(),
@@ -4076,14 +4427,10 @@ index 7428a6a..f61d62f 100644
 -
  }
 diff --git llap-server/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskCommunicator.java llap-server/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskCommunicator.java
-index ce248e9..e4c5c26 100644
+index 5c370ee..eb6384f 100644
 --- llap-server/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskCommunicator.java
 +++ llap-server/src/java/org/apache/hadoop/hive/llap/tezplugins/LlapTaskCommunicator.java
-@@ -35,10 +35,10 @@
- import org.apache.hadoop.hive.conf.HiveConf;
- import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
- import org.apache.hadoop.hive.llap.LlapNodeId;
--import org.apache.hadoop.hive.llap.configuration.LlapConfiguration;
+@@ -39,6 +39,7 @@
  import org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos;
  import org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.FragmentRuntimeInfo;
  import org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.QueryCompleteRequestProto;
@@ -4091,8 +4438,24 @@ index ce248e9..e4c5c26 100644
  import org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SourceStateUpdatedRequestProto;
  import org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SourceStateUpdatedResponseProto;
  import org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SubmitWorkRequestProto;
-@@ -82,7 +82,8 @@
-   private static final Logger LOG = LoggerFactory.getLogger(LlapTaskCommunicator.class);
+@@ -62,7 +63,6 @@
+ import org.apache.hadoop.yarn.api.records.LocalResource;
+ import org.apache.tez.common.TezTaskUmbilicalProtocol;
+ import org.apache.tez.common.security.JobTokenSecretManager;
+-import org.apache.tez.dag.api.TaskCommunicatorContext;
+ import org.apache.tez.dag.api.TezConfiguration;
+ import org.apache.tez.dag.api.TezException;
+ import org.apache.tez.dag.api.TezUncheckedException;
+@@ -74,6 +74,7 @@
+ import org.apache.tez.runtime.api.impl.TezHeartbeatResponse;
+ import org.apache.tez.serviceplugins.api.ContainerEndReason;
+ import org.apache.tez.serviceplugins.api.TaskAttemptEndReason;
++import org.apache.tez.serviceplugins.api.TaskCommunicatorContext;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+@@ -85,7 +86,8 @@
+   private static final boolean isDebugEnabed = LOG.isDebugEnabled();
  
    private final SubmitWorkRequestProto BASE_SUBMIT_WORK_REQUEST;
 -  private final ConcurrentMap<String, ByteBuffer> credentialMap;
@@ -4101,9 +4464,9 @@ index ce248e9..e4c5c26 100644
  
    // Tracks containerIds and taskAttemptIds, so can be kept independent of the running DAG.
    // When DAG specific cleanup happens, it'll be better to link this to a DAG though.
-@@ -95,7 +96,8 @@
-   private final LlapTaskUmbilicalProtocol umbilical;
-   private final Token<LlapTokenIdentifier> token;
+@@ -104,7 +106,8 @@
+   private final ConcurrentMap<LlapNodeId, PingingNodeInfo> pingedNodeMap = new ConcurrentHashMap<>();
+ 
  
 -  private volatile String currentDagName;
 +  private volatile int currentDagId;
@@ -4111,7 +4474,7 @@ index ce248e9..e4c5c26 100644
  
    public LlapTaskCommunicator(
        TaskCommunicatorContext taskCommunicatorContext) {
-@@ -217,8 +219,9 @@ public void registerRunningTaskAttempt(final ContainerId containerId, final Task
+@@ -226,8 +229,9 @@ public void registerRunningTaskAttempt(final ContainerId containerId, final Task
                                           int priority)  {
      super.registerRunningTaskAttempt(containerId, taskSpec, additionalResources, credentials,
          credentialsChanged, priority);
@@ -4123,7 +4486,7 @@ index ce248e9..e4c5c26 100644
      }
  
  
-@@ -241,7 +244,7 @@ public void registerRunningTaskAttempt(final ContainerId containerId, final Task
+@@ -251,7 +255,7 @@ public void registerRunningTaskAttempt(final ContainerId containerId, final Task
      nodesForQuery.add(nodeId);
  
      sourceStateTracker.registerTaskForStateUpdates(host, port, taskSpec.getInputs());
@@ -4132,7 +4495,7 @@ index ce248e9..e4c5c26 100644
          taskSpec.getVertexName(), taskSpec.getTaskAttemptID().getTaskID().getId(), priority);
      SubmitWorkRequestProto requestProto;
  
-@@ -334,7 +337,7 @@ private void sendTaskTerminated(final TezTaskAttemptID taskAttemptId,
+@@ -349,7 +353,7 @@ private void sendTaskTerminated(final TezTaskAttemptID taskAttemptId,
      // NodeId can be null if the task gets unregistered due to failure / being killed by the daemon itself
      if (nodeId != null) {
        TerminateFragmentRequestProto request =
@@ -4140,8 +4503,8 @@ index ce248e9..e4c5c26 100644
 +          TerminateFragmentRequestProto.newBuilder().setQueryIdentifier(currentQueryIdentifierProto)
                .setFragmentIdentifierString(taskAttemptId.toString()).build();
        communicator.sendTerminateFragment(request, nodeId.getHostname(), nodeId.getPort(),
-           new TaskCommunicator.ExecuteRequestCallback<TerminateFragmentResponseProto>() {
-@@ -355,12 +358,16 @@ public void indicateError(Throwable t) {
+           new LlapDaemonProtocolClientProxy.ExecuteRequestCallback<TerminateFragmentResponseProto>() {
+@@ -370,12 +374,16 @@ public void indicateError(Throwable t) {
      }
    }
  
@@ -4160,9 +4523,9 @@ index ce248e9..e4c5c26 100644
 -      LOG.info("Sending dagComplete message for {}, to {}", dagName, llapNodeId);
 +      LOG.info("Sending dagComplete message for {}, to {}", dagIdentifier, llapNodeId);
        communicator.sendQueryComplete(request, llapNodeId.getHostname(), llapNodeId.getPort(),
-           new TaskCommunicator.ExecuteRequestCallback<LlapDaemonProtocolProtos.QueryCompleteResponseProto>() {
+           new LlapDaemonProtocolClientProxy.ExecuteRequestCallback<LlapDaemonProtocolProtos.QueryCompleteResponseProto>() {
              @Override
-@@ -369,7 +376,7 @@ public void setResponse(LlapDaemonProtocolProtos.QueryCompleteResponseProto resp
+@@ -384,7 +392,7 @@ public void setResponse(LlapDaemonProtocolProtos.QueryCompleteResponseProto resp
  
              @Override
              public void indicateError(Throwable t) {
@@ -4171,9 +4534,9 @@ index ce248e9..e4c5c26 100644
              }
            });
      }
-@@ -407,12 +414,12 @@ public void indicateError(Throwable t) {
- 
- 
+@@ -495,12 +503,12 @@ void nodePinged(String hostname, int port) {
+     }
+   }
  
 -  private void resetCurrentDag(String newDagName) {
 +  private void resetCurrentDag(int newDagId) {
@@ -4188,7 +4551,7 @@ index ce248e9..e4c5c26 100644
      // TODO Is it possible for heartbeats to come in from lost tasks - those should be told to die, which
      // is likely already happening.
    }
-@@ -430,10 +437,12 @@ private SubmitWorkRequestProto constructSubmitWorkRequest(ContainerId containerI
+@@ -518,10 +526,12 @@ private SubmitWorkRequestProto constructSubmitWorkRequest(ContainerId containerI
      // Credentials can change across DAGs. Ideally construct only once per DAG.
      taskCredentials.addAll(getContext().getCredentials());
  
@@ -4203,9 +4566,9 @@ index ce248e9..e4c5c26 100644
      } else {
        credentialsBinary = credentialsBinary.duplicate();
      }
-@@ -634,4 +643,10 @@ void nodePinged(String hostname, int port) {
-       }
+@@ -736,4 +746,10 @@ void unregisterContainer(ContainerId containerId) {
      }
+ 
    }
 +
 +  private QueryIdentifierProto constructQueryIdentifierProto(int dagIdentifier) {
@@ -4214,21 +4577,28 @@ index ce248e9..e4c5c26 100644
 +        .build();
 +  }
  }
-\ No newline at end of file
 diff --git llap-server/src/java/org/apache/hadoop/hive/llap/tezplugins/helpers/SourceStateTracker.java llap-server/src/java/org/apache/hadoop/hive/llap/tezplugins/helpers/SourceStateTracker.java
-index 066fae5..628fe9c 100644
+index 066fae5..fded9bf 100644
 --- llap-server/src/java/org/apache/hadoop/hive/llap/tezplugins/helpers/SourceStateTracker.java
 +++ llap-server/src/java/org/apache/hadoop/hive/llap/tezplugins/helpers/SourceStateTracker.java
 @@ -24,6 +24,8 @@
  import java.util.Set;
  
  import org.apache.commons.lang3.mutable.MutableInt;
-+import org.apache.hadoop.hive.llap.daemon.impl.QueryIdentifier;
 +import org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.QueryIdentifierProto;
++import org.apache.tez.serviceplugins.api.TaskCommunicatorContext;
  import org.slf4j.Logger;
  import org.slf4j.LoggerFactory;
  import org.apache.hadoop.hive.llap.LlapNodeId;
-@@ -45,28 +47,33 @@
+@@ -31,7 +33,6 @@
+ import org.apache.hadoop.hive.llap.daemon.rpc.LlapDaemonProtocolProtos.SourceStateUpdatedRequestProto;
+ import org.apache.hadoop.hive.llap.tezplugins.Converters;
+ import org.apache.hadoop.hive.llap.tezplugins.LlapTaskCommunicator;
+-import org.apache.tez.dag.api.TaskCommunicatorContext;
+ import org.apache.tez.dag.api.event.VertexState;
+ import org.apache.tez.mapreduce.input.MRInput;
+ import org.apache.tez.mapreduce.input.MRInputLegacy;
+@@ -45,28 +46,33 @@
    private final TaskCommunicatorContext taskCommunicatorContext;
    private final LlapTaskCommunicator taskCommunicator;
  
@@ -4265,7 +4635,7 @@ index 066fae5..628fe9c 100644
    }
  
    /**
-@@ -139,16 +146,16 @@ public synchronized void sourceStateUpdated(String sourceName, VertexState sourc
+@@ -139,16 +145,16 @@ public synchronized void sourceStateUpdated(String sourceName, VertexState sourc
    }
  
  
@@ -4284,7 +4654,7 @@ index 066fae5..628fe9c 100644
                                                                   int priority) {
      FragmentRuntimeInfo.Builder builder = FragmentRuntimeInfo.newBuilder();
      maybeRegisterForVertexUpdates(vertexName);
-@@ -282,9 +289,8 @@ private boolean isSourceOfInterest(InputSpec inputSpec) {
+@@ -282,9 +288,8 @@ private boolean isSourceOfInterest(InputSpec inputSpec) {
  
    void sendStateUpdateToNode(LlapNodeId nodeId, String sourceName, VertexState state) {
      taskCommunicator.sendStateUpdate(nodeId.getHostname(), nodeId.getPort(),
@@ -4297,7 +4667,7 @@ index 066fae5..628fe9c 100644
  
  
 diff --git llap-server/src/protobuf/LlapDaemonProtocol.proto llap-server/src/protobuf/LlapDaemonProtocol.proto
-index 07721df..4fde4d3 100644
+index a2d944f..944c96c 100644
 --- llap-server/src/protobuf/LlapDaemonProtocol.proto
 +++ llap-server/src/protobuf/LlapDaemonProtocol.proto
 @@ -50,6 +50,7 @@ message GroupInputSpecProto {
@@ -4320,7 +4690,7 @@ index 07721df..4fde4d3 100644
  message SubmitWorkRequestProto {
    optional string container_id_string = 1;
    optional string am_host = 2;
-@@ -91,7 +97,7 @@ message SubmitWorkResponseProto {
+@@ -98,7 +104,7 @@ message SubmitWorkResponseProto {
  }
  
  message SourceStateUpdatedRequestProto {
@@ -4329,7 +4699,7 @@ index 07721df..4fde4d3 100644
    optional string src_name = 2;
    optional SourceStateProto state = 3;
  }
-@@ -101,17 +107,16 @@ message SourceStateUpdatedResponseProto {
+@@ -108,17 +114,16 @@ message SourceStateUpdatedResponseProto {
  
  message QueryCompleteRequestProto {
    optional string query_id = 1;
@@ -4351,91 +4721,6 @@ index 07721df..4fde4d3 100644
  }
  
  message TerminateFragmentResponseProto {
-diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/ContainerRunnerImpl.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/ContainerRunnerImpl.java
-index d6b2234..5404788 100644
---- llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/ContainerRunnerImpl.java
-+++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/ContainerRunnerImpl.java
-@@ -56,6 +56,8 @@
- import org.apache.tez.dag.api.TezConfiguration;
- import org.apache.tez.dag.api.TezConstants;
- import org.apache.tez.dag.records.TezTaskAttemptID;
-+import org.apache.tez.hadoop.shim.HadoopShim;
-+import org.apache.tez.hadoop.shim.HadoopShimsLoader;
- import org.apache.tez.runtime.api.impl.ExecutionContextImpl;
- import org.slf4j.Logger;
- import org.slf4j.LoggerFactory;
-@@ -82,6 +84,7 @@
-   private final Configuration conf;
-   private final TaskRunnerCallable.ConfParams confParams;
-   private final KilledTaskHandler killedTaskHandler = new KilledTaskHandlerImpl();
-+  private final HadoopShim tezHadoopShim;
- 
-   public ContainerRunnerImpl(Configuration conf, int numExecutors, int waitQueueSize,
-       boolean enablePreemption, String[] localDirsBase, AtomicReference<Integer> localShufflePort,
-@@ -119,6 +122,7 @@ public ContainerRunnerImpl(Configuration conf, int numExecutors, int waitQueueSi
-         conf.getInt(TezConfiguration.TEZ_TASK_MAX_EVENTS_PER_HEARTBEAT,
-             TezConfiguration.TEZ_TASK_MAX_EVENTS_PER_HEARTBEAT_DEFAULT)
-     );
-+    tezHadoopShim = new HadoopShimsLoader(conf).getHadoopShim();
- 
-     LOG.info("ContainerRunnerImpl config: " +
-             "memoryPerExecutorDerviced=" + memoryPerExecutor
-@@ -200,7 +204,7 @@ public void submitWork(SubmitWorkRequestProto request) throws IOException {
-       TaskRunnerCallable callable = new TaskRunnerCallable(request, fragmentInfo, new Configuration(getConfig()),
-           new LlapExecutionContext(localAddress.get().getHostName(), queryTracker), env,
-           credentials, memoryPerExecutor, amReporter, confParams, metrics, killedTaskHandler,
--          this);
-+          this, tezHadoopShim);
-       try {
-         executorService.schedule(callable);
-       } catch (RejectedExecutionException e) {
-diff --git llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
-index b60f71f..ede2a03 100644
---- llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
-+++ llap-server/src/java/org/apache/hadoop/hive/llap/daemon/impl/TaskRunnerCallable.java
-@@ -51,6 +51,7 @@
- import org.apache.tez.common.security.JobTokenIdentifier;
- import org.apache.tez.common.security.TokenCache;
- import org.apache.tez.dag.api.TezConstants;
-+import org.apache.tez.hadoop.shim.HadoopShim;
- import org.apache.tez.runtime.api.ExecutionContext;
- import org.apache.tez.runtime.api.impl.TaskSpec;
- import org.apache.tez.runtime.common.objectregistry.ObjectRegistryImpl;
-@@ -100,6 +101,7 @@
-   private final LlapDaemonExecutorMetrics metrics;
-   private final String requestId;
-   private final String queryId;
-+  private final HadoopShim tezHadoopShim;
-   private boolean shouldRunTask = true;
-   final Stopwatch runtimeWatch = new Stopwatch();
-   final Stopwatch killtimerWatch = new Stopwatch();
-@@ -115,7 +117,8 @@ public TaskRunnerCallable(SubmitWorkRequestProto request, QueryFragmentInfo frag
-                      long memoryAvailable, AMReporter amReporter,
-                      ConfParams confParams, LlapDaemonExecutorMetrics metrics,
-                      KilledTaskHandler killedTaskHandler,
--                     FragmentCompletionHandler fragmentCompleteHandler) {
-+                     FragmentCompletionHandler fragmentCompleteHandler,
-+                     HadoopShim tezHadoopShim) {
-     this.request = request;
-     this.fragmentInfo = fragmentInfo;
-     this.conf = conf;
-@@ -139,6 +142,7 @@ public TaskRunnerCallable(SubmitWorkRequestProto request, QueryFragmentInfo frag
-     this.queryId = request.getFragmentSpec().getDagName();
-     this.killedTaskHandler = killedTaskHandler;
-     this.fragmentCompletionHanler = fragmentCompleteHandler;
-+    this.tezHadoopShim = tezHadoopShim;
-   }
- 
-   public long getStartTime() {
-@@ -216,7 +220,7 @@ public LlapTaskUmbilicalProtocol run() throws Exception {
-               serviceConsumerMetadata, envMap, startedInputsMap, taskReporter, executor,
-               objectRegistry,
-               pid,
--              executionContext, memoryAvailable, false);
-+              executionContext, memoryAvailable, false, tezHadoopShim);
-         }
-       }
-       if (taskRunner == null) {
 diff --git llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/TaskExecutorTestHelpers.java llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/TaskExecutorTestHelpers.java
 index 38af07e..d3ba6dd 100644
 --- llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/TaskExecutorTestHelpers.java
@@ -4457,6 +4742,60 @@ index 38af07e..d3ba6dd 100644
        this.workTime = workTime;
        this.canFinish = canFinish;
      }
+diff --git llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/TestQueryIdentifier.java llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/TestQueryIdentifier.java
+new file mode 100644
+index 0000000..39a3865
+--- /dev/null
++++ llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/TestQueryIdentifier.java
+@@ -0,0 +1,48 @@
++package org.apache.hadoop.hive.llap.daemon.impl;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertNotEquals;
++
++import org.junit.Test;
++
++public class TestQueryIdentifier {
++
++  @Test (timeout = 5000)
++  public void testEquality() {
++
++    String appIdString1 = "app1";
++    String appIdString2 = "app2";
++
++    int dagId1 = 1;
++    int dagId2 = 2;
++
++    QueryIdentifier[] queryIdentifiers = new QueryIdentifier[4];
++
++    queryIdentifiers[0] = new QueryIdentifier(appIdString1, dagId1);
++    queryIdentifiers[1] = new QueryIdentifier(appIdString1, dagId2);
++    queryIdentifiers[2] = new QueryIdentifier(appIdString2, dagId1);
++    queryIdentifiers[3] = new QueryIdentifier(appIdString2, dagId2);
++
++    for (int i = 0 ; i < 4 ; i++) {
++      for (int j = 0 ; j < 4 ; j++) {
++        if (i == j) {
++          assertEquals(queryIdentifiers[i], queryIdentifiers[j]);
++        } else {
++          assertNotEquals(queryIdentifiers[i], queryIdentifiers[j]);
++        }
++      }
++    }
++
++    QueryIdentifier q11 = new QueryIdentifier(appIdString1, dagId1);
++    QueryIdentifier q12 = new QueryIdentifier(appIdString1, dagId2);
++    QueryIdentifier q21 = new QueryIdentifier(appIdString2, dagId1);
++    QueryIdentifier q22 = new QueryIdentifier(appIdString2, dagId2);
++
++    assertEquals(queryIdentifiers[0], q11);
++    assertEquals(queryIdentifiers[1], q12);
++    assertEquals(queryIdentifiers[2], q21);
++    assertEquals(queryIdentifiers[3], q22);
++
++
++  }
++}
 diff --git llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/comparator/TestFirstInFirstOutComparator.java llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/comparator/TestFirstInFirstOutComparator.java
 index ebfb430..73df985 100644
 --- llap-server/src/test/org/apache/hadoop/hive/llap/daemon/impl/comparator/TestFirstInFirstOutComparator.java
@@ -4478,3 +4817,524 @@ index ebfb430..73df985 100644
        this.workTime = workTime;
        this.canFinish = canFinish;
      }
+diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
+index e9c14b1..45d3cd1 100644
+--- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
++++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/CustomPartitionVertex.java
+@@ -33,6 +33,7 @@
+ import java.util.TreeSet;
+ 
+ import com.google.common.collect.LinkedListMultimap;
++import org.apache.hadoop.mapred.split.SplitLocationProvider;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ import org.apache.hadoop.conf.Configuration;
+@@ -271,25 +272,27 @@ public void onRootVertexInitialized(String inputName, InputDescriptor inputDescr
+           HashMultimap.<Integer, InputSplit> create();
+       boolean secondLevelGroupingDone = false;
+       if ((mainWorkName.isEmpty()) || (inputName.compareTo(mainWorkName) == 0)) {
++        SplitLocationProvider splitLocationProvider = Utils.getSplitLocationProvider(conf, LOG);
+         for (Integer key : bucketToInitialSplitMap.keySet()) {
+           InputSplit[] inputSplitArray =
+               (bucketToInitialSplitMap.get(key).toArray(new InputSplit[0]));
+           Multimap<Integer, InputSplit> groupedSplit =
+               grouper.generateGroupedSplits(jobConf, conf, inputSplitArray, waves,
+-                  availableSlots, inputName, mainWorkName.isEmpty());
++                  availableSlots, inputName, mainWorkName.isEmpty(), splitLocationProvider);
+           if (mainWorkName.isEmpty() == false) {
+             Multimap<Integer, InputSplit> singleBucketToGroupedSplit =
+                 HashMultimap.<Integer, InputSplit> create();
+             singleBucketToGroupedSplit.putAll(key, groupedSplit.values());
+             groupedSplit =
+                 grouper.group(jobConf, singleBucketToGroupedSplit, availableSlots,
+-                    HiveConf.getFloatVar(conf, HiveConf.ConfVars.TEZ_SMB_NUMBER_WAVES));
++                    HiveConf.getFloatVar(conf, HiveConf.ConfVars.TEZ_SMB_NUMBER_WAVES), null);
+             secondLevelGroupingDone = true;
+           }
+           bucketToGroupedSplitMap.putAll(key, groupedSplit.values());
+         }
+         processAllEvents(inputName, bucketToGroupedSplitMap, secondLevelGroupingDone);
+       } else {
++        SplitLocationProvider splitLocationProvider = Utils.getSplitLocationProvider(conf, LOG);
+         // do not group across files in case of side work because there is only 1 KV reader per
+         // grouped split. This would affect SMB joins where we want to find the smallest key in
+         // all the bucket files.
+@@ -298,7 +301,7 @@ public void onRootVertexInitialized(String inputName, InputDescriptor inputDescr
+               (bucketToInitialSplitMap.get(key).toArray(new InputSplit[0]));
+           Multimap<Integer, InputSplit> groupedSplit =
+               grouper.generateGroupedSplits(jobConf, conf, inputSplitArray, waves,
+-                    availableSlots, inputName, false);
++                    availableSlots, inputName, false, splitLocationProvider);
+             bucketToGroupedSplitMap.putAll(key, groupedSplit.values());
+         }
+         /*
+diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HiveSplitGenerator.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HiveSplitGenerator.java
+index 8ebfe69..8e48c2e 100644
+--- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HiveSplitGenerator.java
++++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HiveSplitGenerator.java
+@@ -41,6 +41,7 @@
+ import org.apache.hadoop.mapred.InputFormat;
+ import org.apache.hadoop.mapred.InputSplit;
+ import org.apache.hadoop.mapred.JobConf;
++import org.apache.hadoop.mapred.split.SplitLocationProvider;
+ import org.apache.hadoop.mapreduce.split.TezMapReduceSplitsGrouper;
+ import org.apache.hadoop.util.ReflectionUtils;
+ import org.apache.tez.common.TezUtils;
+@@ -79,6 +80,7 @@
+   private final MRInputUserPayloadProto userPayloadProto;
+   private final MapWork work;
+   private final SplitGrouper splitGrouper = new SplitGrouper();
++  private final SplitLocationProvider splitLocationProvider;
+ 
+   public HiveSplitGenerator(InputInitializerContext initializerContext) throws IOException,
+       SerDeException {
+@@ -91,6 +93,9 @@ public HiveSplitGenerator(InputInitializerContext initializerContext) throws IOE
+ 
+     this.jobConf = new JobConf(conf);
+ 
++    this.splitLocationProvider = Utils.getSplitLocationProvider(conf, LOG);
++    LOG.info("SplitLocationProvider: " + splitLocationProvider);
++
+     // Read all credentials into the credentials instance stored in JobConf.
+     ShimLoader.getHadoopShims().getMergedCredentials(jobConf);
+ 
+@@ -149,6 +154,7 @@ public HiveSplitGenerator(InputInitializerContext initializerContext) throws IOE
+             conf.getFloat(TezMapReduceSplitsGrouper.TEZ_GROUPING_SPLIT_WAVES,
+                 TezMapReduceSplitsGrouper.TEZ_GROUPING_SPLIT_WAVES_DEFAULT);
+ 
++        // Raw splits
+         InputSplit[] splits = inputFormat.getSplits(jobConf, (int) (availableSlots * waves));
+         // Sort the splits, so that subsequent grouping is consistent.
+         Arrays.sort(splits, new InputSplitComparator());
+@@ -160,10 +166,10 @@ public HiveSplitGenerator(InputInitializerContext initializerContext) throws IOE
+         }
+ 
+         Multimap<Integer, InputSplit> groupedSplits =
+-            splitGrouper.generateGroupedSplits(jobConf, conf, splits, waves, availableSlots);
++            splitGrouper.generateGroupedSplits(jobConf, conf, splits, waves, availableSlots, splitLocationProvider);
+         // And finally return them in a flat array
+         InputSplit[] flatSplits = groupedSplits.values().toArray(new InputSplit[0]);
+-        LOG.info("Number of grouped splits: " + flatSplits.length);
++        LOG.info("Number of split groups: " + flatSplits.length);
+ 
+         List<TaskLocationHint> locationHints = splitGrouper.createTaskLocationHints(flatSplits, generateConsistentSplits);
+ 
+diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HostAffinitySplitLocationProvider.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HostAffinitySplitLocationProvider.java
+new file mode 100644
+index 0000000..c06499e
+--- /dev/null
++++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/HostAffinitySplitLocationProvider.java
+@@ -0,0 +1,86 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.hive.ql.exec.tez;
++
++import java.io.IOException;
++
++import com.google.common.base.Preconditions;
++import org.apache.hadoop.io.DataOutputBuffer;
++import org.apache.hadoop.mapred.FileSplit;
++import org.apache.hadoop.mapred.InputSplit;
++import org.apache.hadoop.mapred.split.SplitLocationProvider;
++import org.apache.hive.common.util.Murmur3;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++/**
++ * This maps a split (path + offset) to an index based on the number of locations provided.
++ *
++ * If locations do not change across jobs, the intention is to map the same split to the same node.
++ *
++ * A big problem is when nodes change (added, removed, temporarily removed and re-added) etc. That changes
++ * the number of locations / position of locations - and will cause the cache to be almost completely invalidated.
++ *
++ * TODO: Support for consistent hashing when combining the split location generator and the ServiceRegistry.
++ *
++ */
++public class HostAffinitySplitLocationProvider implements SplitLocationProvider {
++
++  private final Logger LOG = LoggerFactory.getLogger(HostAffinitySplitLocationProvider.class);
++  private final boolean isDebugEnabled = LOG.isDebugEnabled();
++
++  private final String[] knownLocations;
++
++  public HostAffinitySplitLocationProvider(String[] knownLocations) {
++    Preconditions.checkState(knownLocations != null && knownLocations.length != 0,
++        HostAffinitySplitLocationProvider.class.getName() +
++            "needs at least 1 location to function");
++    this.knownLocations = knownLocations;
++  }
++
++  @Override
++  public String[] getLocations(InputSplit split) throws IOException {
++    if (split instanceof FileSplit) {
++      FileSplit fsplit = (FileSplit) split;
++      long hash = generateHash(fsplit.getPath().toString(), fsplit.getStart());
++      int indexRaw = (int) (hash % knownLocations.length);
++      int index = Math.abs(indexRaw);
++      if (isDebugEnabled) {
++        LOG.debug(
++            "Split at " + fsplit.getPath() + " with offset= " + fsplit.getStart() + ", length=" +
++                fsplit.getLength() + " mapped to index=" + index + ", location=" +
++                knownLocations[index]);
++      }
++      return new String[]{knownLocations[index]};
++    } else {
++      if (isDebugEnabled) {
++        LOG.debug("Split: " + split + " is not a FileSplit. Using default locations");
++      }
++      return split.getLocations();
++    }
++  }
++
++  private long generateHash(String path, long startOffset) throws IOException {
++    // Explicitly using only the start offset of a split, and not the length.
++    // Splits generated on block boundaries and stripe boundaries can vary slightly. Try hashing both to the same node.
++    // There is the drawback of potentially hashing the same data on multiple nodes though, when a large split
++    // is sent to 1 node, and a second invocation uses smaller chunks of the previous large split and send them
++    // to different nodes.
++    DataOutputBuffer dob = new DataOutputBuffer();
++    dob.writeLong(startOffset);
++    dob.writeUTF(path);
++    return Murmur3.hash64(dob.getData(), 0, dob.getLength());
++  }
++}
+diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/SplitGrouper.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/SplitGrouper.java
+index aaaa6a5..f4496df 100644
+--- ql/src/java/org/apache/hadoop/hive/ql/exec/tez/SplitGrouper.java
++++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/SplitGrouper.java
+@@ -23,7 +23,6 @@
+ import java.util.Collection;
+ import java.util.Collections;
+ import java.util.HashMap;
+-import java.util.HashSet;
+ import java.util.LinkedHashSet;
+ import java.util.List;
+ import java.util.Map;
+@@ -42,6 +41,7 @@
+ import org.apache.hadoop.mapred.FileSplit;
+ import org.apache.hadoop.mapred.InputSplit;
+ import org.apache.hadoop.mapred.JobConf;
++import org.apache.hadoop.mapred.split.SplitLocationProvider;
+ import org.apache.hadoop.mapred.split.TezGroupedSplit;
+ import org.apache.hadoop.mapred.split.TezMapredSplitsGrouper;
+ import org.apache.tez.dag.api.TaskLocationHint;
+@@ -65,14 +65,13 @@
+ 
+   private final TezMapredSplitsGrouper tezGrouper = new TezMapredSplitsGrouper();
+ 
+-
+-
+   /**
+    * group splits for each bucket separately - while evenly filling all the
+    * available slots with tasks
+    */
+   public Multimap<Integer, InputSplit> group(Configuration conf,
+-      Multimap<Integer, InputSplit> bucketSplitMultimap, int availableSlots, float waves)
++      Multimap<Integer, InputSplit> bucketSplitMultimap, int availableSlots, float waves,
++                                             SplitLocationProvider splitLocationProvider)
+       throws IOException {
+ 
+     // figure out how many tasks we want for each bucket
+@@ -90,9 +89,9 @@
+       InputSplit[] rawSplits = inputSplitCollection.toArray(new InputSplit[0]);
+       InputSplit[] groupedSplits =
+           tezGrouper.getGroupedSplits(conf, rawSplits, bucketTaskMap.get(bucketId),
+-              HiveInputFormat.class.getName(), new ColumnarSplitSizeEstimator());
++              HiveInputFormat.class.getName(), new ColumnarSplitSizeEstimator(), splitLocationProvider);
+ 
+-      LOG.info("Original split size is " + rawSplits.length + " grouped split size is "
++      LOG.info("Original split count is " + rawSplits.length + " grouped split count is "
+           + groupedSplits.length + ", for bucket: " + bucketId);
+ 
+       for (InputSplit inSplit : groupedSplits) {
+@@ -155,9 +154,10 @@
+   public Multimap<Integer, InputSplit> generateGroupedSplits(JobConf jobConf,
+                                                                     Configuration conf,
+                                                                     InputSplit[] splits,
+-                                                                    float waves, int availableSlots)
++                                                                    float waves, int availableSlots,
++                                                                    SplitLocationProvider locationProvider)
+       throws Exception {
+-    return generateGroupedSplits(jobConf, conf, splits, waves, availableSlots, null, true);
++    return generateGroupedSplits(jobConf, conf, splits, waves, availableSlots, null, true, locationProvider);
+   }
+ 
+   /** Generate groups of splits, separated by schema evolution boundaries */
+@@ -166,10 +166,12 @@
+                                                                     InputSplit[] splits,
+                                                                     float waves, int availableSlots,
+                                                                     String inputName,
+-                                                                    boolean groupAcrossFiles) throws
++                                                                    boolean groupAcrossFiles,
++                                                                    SplitLocationProvider locationProvider) throws
+       Exception {
+ 
+     MapWork work = populateMapWork(jobConf, inputName);
++    // ArrayListMultimap is important here to retain the ordering for the splits.
+     Multimap<Integer, InputSplit> bucketSplitMultiMap =
+         ArrayListMultimap.<Integer, InputSplit> create();
+ 
+@@ -188,7 +190,7 @@
+ 
+     // group them into the chunks we want
+     Multimap<Integer, InputSplit> groupedSplits =
+-        this.group(jobConf, bucketSplitMultiMap, availableSlots, waves);
++        this.group(jobConf, bucketSplitMultiMap, availableSlots, waves, locationProvider);
+ 
+     return groupedSplits;
+   }
+@@ -207,6 +209,8 @@
+     // mapping of bucket id to number of required tasks to run
+     Map<Integer, Integer> bucketTaskMap = new HashMap<Integer, Integer>();
+ 
++    // TODO HIVE-12255. Make use of SplitSizeEstimator.
++    // The actual task computation needs to be looked at as well.
+     // compute the total size per bucket
+     long totalSize = 0;
+     boolean earlyExit = false;
+diff --git ql/src/java/org/apache/hadoop/hive/ql/exec/tez/Utils.java ql/src/java/org/apache/hadoop/hive/ql/exec/tez/Utils.java
+new file mode 100644
+index 0000000..3eb858b
+--- /dev/null
++++ ql/src/java/org/apache/hadoop/hive/ql/exec/tez/Utils.java
+@@ -0,0 +1,58 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ * <p/>
++ * http://www.apache.org/licenses/LICENSE-2.0
++ * <p/>
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.apache.hadoop.hive.ql.exec.tez;
++
++import java.io.IOException;
++import java.util.List;
++
++import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.hive.conf.HiveConf;
++import org.apache.hadoop.hive.llap.registry.ServiceInstance;
++import org.apache.hadoop.hive.llap.registry.impl.LlapRegistryService;
++import org.apache.hadoop.mapred.split.SplitLocationProvider;
++import org.slf4j.Logger;
++
++public class Utils {
++  public static SplitLocationProvider getSplitLocationProvider(Configuration conf, Logger LOG) throws
++      IOException {
++    boolean useCustomLocations =
++        HiveConf.getBoolVar(conf, HiveConf.ConfVars.LLAP_CLIENT_CONSISTENT_SPLITS);
++    SplitLocationProvider splitLocationProvider;
++    LOG.info("SplitGenerator using llap affinitized locations: " + useCustomLocations);
++    if (useCustomLocations) {
++      LlapRegistryService serviceRegistry;
++      serviceRegistry = LlapRegistryService.getClient(conf);
++
++      List<ServiceInstance> serviceInstances =
++          serviceRegistry.getInstances().getAllInstancesOrdered();
++      String[] locations = new String[serviceInstances.size()];
++      int i = 0;
++      for (ServiceInstance serviceInstance : serviceInstances) {
++        if (LOG.isDebugEnabled()) {
++          LOG.debug("Adding " + serviceInstance.getWorkerIdentity() + " with hostname=" +
++              serviceInstance.getHost() + " to list for split locations");
++        }
++        locations[i++] = serviceInstance.getHost();
++      }
++      splitLocationProvider = new HostAffinitySplitLocationProvider(locations);
++    } else {
++      splitLocationProvider = null;
++    }
++    return splitLocationProvider;
++  }
++}
+diff --git ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestHostAffinitySplitLocationProvider.java ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestHostAffinitySplitLocationProvider.java
+new file mode 100644
+index 0000000..d98a5ff
+--- /dev/null
++++ ql/src/test/org/apache/hadoop/hive/ql/exec/tez/TestHostAffinitySplitLocationProvider.java
+@@ -0,0 +1,163 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.hive.ql.exec.tez;
++
++import static org.junit.Assert.assertArrayEquals;
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertNotEquals;
++import static org.junit.Assert.assertTrue;
++import static org.mockito.Mockito.doReturn;
++import static org.mockito.Mockito.mock;
++
++import java.io.IOException;
++import java.util.HashSet;
++import java.util.Set;
++
++import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.hive.ql.io.orc.OrcSplit;
++import org.apache.hadoop.mapred.FileSplit;
++import org.apache.hadoop.mapred.InputSplit;
++import org.junit.Test;
++
++public class TestHostAffinitySplitLocationProvider {
++
++
++  private static final String[] locations = new String[5];
++  private static final Set<String> locationsSet = new HashSet<>();
++  private static final String[] executorLocations = new String[9];
++  private static final Set<String> executorLocationsSet = new HashSet<>();
++
++  static {
++    for (int i = 0 ; i < 5 ; i++) {
++      locations[i] = "location" + i;
++      locationsSet.add(locations[i]);
++    }
++
++    for (int i = 0 ; i < 9 ; i++) {
++      executorLocations[i] = "execLocation" + i;
++      executorLocationsSet.add(executorLocations[i]);
++    }
++
++  }
++
++  @Test (timeout = 5000)
++  public void testNonFileSplits() throws IOException {
++
++    HostAffinitySplitLocationProvider locationProvider = new HostAffinitySplitLocationProvider(executorLocations);
++
++    InputSplit inputSplit1 = createMockInputSplit(new String[] {locations[0], locations[1]});
++    InputSplit inputSplit2 = createMockInputSplit(new String[] {locations[2], locations[3]});
++
++    assertArrayEquals(new String[] {locations[0], locations[1]}, locationProvider.getLocations(inputSplit1));
++    assertArrayEquals(new String[] {locations[2], locations[3]}, locationProvider.getLocations(inputSplit2));
++  }
++
++  @Test (timeout = 5000)
++  public void testOrcSplitsBasic() throws IOException {
++    HostAffinitySplitLocationProvider locationProvider = new HostAffinitySplitLocationProvider(executorLocations);
++
++    InputSplit os1 = createMockFileSplit(true, "path1", 0, 1000, new String[] {locations[0], locations[1]});
++    InputSplit os2 = createMockFileSplit(true, "path2", 0, 2000, new String[] {locations[2], locations[3]});
++    InputSplit os3 = createMockFileSplit(true, "path3", 1000, 2000, new String[] {locations[0], locations[3]});
++
++    String[] retLoc1 = locationProvider.getLocations(os1);
++    String[] retLoc2 = locationProvider.getLocations(os2);
++    String[] retLoc3 = locationProvider.getLocations(os3);
++
++    assertEquals(1, retLoc1.length);
++    assertFalse(locationsSet.contains(retLoc1[0]));
++    assertTrue(executorLocationsSet.contains(retLoc1[0]));
++
++    assertEquals(1, retLoc2.length);
++    assertFalse(locationsSet.contains(retLoc2[0]));
++    assertTrue(executorLocationsSet.contains(retLoc2[0]));
++
++    assertEquals(1, retLoc3.length);
++    assertFalse(locationsSet.contains(retLoc3[0]));
++    assertTrue(executorLocationsSet.contains(retLoc3[0]));
++  }
++
++  @Test (timeout = 5000)
++  public void testOrcSplitsLocationAffinity() throws IOException {
++    HostAffinitySplitLocationProvider locationProvider = new HostAffinitySplitLocationProvider(executorLocations);
++
++    // Same file, offset, different lengths
++    InputSplit os11 = createMockFileSplit(true, "path1", 0, 15000, new String[] {locations[0], locations[1]});
++    InputSplit os12 = createMockFileSplit(true, "path1", 0, 30000, new String[] {locations[0], locations[1]});
++    // Same file, different offset
++    InputSplit os13 = createMockFileSplit(true, "path1", 15000, 30000, new String[] {locations[0], locations[1]});
++
++    String[] retLoc11 = locationProvider.getLocations(os11);
++    String[] retLoc12 = locationProvider.getLocations(os12);
++    String[] retLoc13 = locationProvider.getLocations(os13);
++
++    assertEquals(1, retLoc11.length);
++    assertFalse(locationsSet.contains(retLoc11[0]));
++    assertTrue(executorLocationsSet.contains(retLoc11[0]));
++
++    assertEquals(1, retLoc12.length);
++    assertFalse(locationsSet.contains(retLoc12[0]));
++    assertTrue(executorLocationsSet.contains(retLoc12[0]));
++
++    assertEquals(1, retLoc13.length);
++    assertFalse(locationsSet.contains(retLoc13[0]));
++    assertTrue(executorLocationsSet.contains(retLoc13[0]));
++
++    // Verify the actual locations being correct.
++    // os13 should be on a different location. Splits are supposed to be consistent across JVMs,
++    // the test is setup to verify a different host (make sure not to hash to the same host as os11,os12).
++    // If the test were to fail because the host is the same - the assumption about consistent across JVM
++    // instances is likely incorrect.
++    assertEquals(retLoc11[0], retLoc12[0]);
++    assertNotEquals(retLoc11[0], retLoc13[0]);
++
++
++    // Get locations again, and make sure they're the same.
++    String[] retLoc112 = locationProvider.getLocations(os11);
++    String[] retLoc122 = locationProvider.getLocations(os12);
++    String[] retLoc132 = locationProvider.getLocations(os13);
++    assertArrayEquals(retLoc11, retLoc112);
++    assertArrayEquals(retLoc12, retLoc122);
++    assertArrayEquals(retLoc13, retLoc132);
++  }
++
++
++  private InputSplit createMockInputSplit(String[] locations) throws IOException {
++    InputSplit inputSplit = mock(InputSplit.class);
++    doReturn(locations).when(inputSplit).getLocations();
++    return inputSplit;
++  }
++
++  private InputSplit createMockFileSplit(boolean createOrcSplit, String fakePathString, long start,
++                                         long length, String[] locations) throws IOException {
++    FileSplit fileSplit;
++    if (createOrcSplit) {
++      fileSplit = mock(OrcSplit.class);
++    } else {
++      fileSplit = mock(FileSplit.class);
++    }
++
++    doReturn(start).when(fileSplit).getStart();
++    doReturn(length).when(fileSplit).getLength();
++    doReturn(new Path(fakePathString)).when(fileSplit).getPath();
++    doReturn(locations).when(fileSplit).getLocations();
++
++    doReturn(locations).when(fileSplit).getLocations();
++    return fileSplit;
++  }
++
++
++}
