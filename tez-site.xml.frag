@@ -58,8 +58,15 @@
   </property>
   <property>
     <name>tez.grouping.split-waves</name>
-    <value>1.7</value>
+    <value>0.6</value>
   </property>
+  <!-- Used for consistent splits and llap cache -->
+  <!--
+  <property>
+    <name>tez.grouping.node.local.only</name>
+    <value>true</value>
+  </property>
+  -->
   <property>
     <name>tez.grouping.min-size</name>
     <value>67108864</value>

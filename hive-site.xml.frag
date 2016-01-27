@@ -35,6 +35,25 @@
     <name>hive.optimize.reducededuplication.min.reducer</name>
     <value>4</value>
   </property>
+  <!-- Properties to generate consistent splits in LLAP, and cache locality. Also see tez-site.xml.frag --> 
+  <!--
+  <property>
+    <name>hive.tez.input.generate.consistent.splits</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.llap.client.consistent.splits</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.llap.task.scheduler.locality.delay</name>
+    <value>-1</value>
+  </property>
+  <property>
+    <name>hive.exec.orc.split.strategy</name>
+    <value>BI</value>
+  </property>
+  -->
   <property>
     <name>hive.tez.auto.reducer.parallelism</name>
     <value>true</value>
@@ -50,6 +69,14 @@
   <property>
     <name>hive.jar.directory</name>
     <value>hdfs:///user/hive/</value>
+  </property>
+  <property>
+    <name>hive.server2.thrift.http.port</name>
+    <value>10001</value>
+  </property>
+  <property>
+    <name>hive.server2.webui.port</name>
+    <value>10002</value>
   </property>
   <property>
     <name>hive.server2.thrift.port</name>

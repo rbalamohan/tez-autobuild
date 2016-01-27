@@ -47,7 +47,7 @@
   </property>
 
   <property>
-    <name>hive.llap.io.cache.orc.size</name>
+    <name>hive.llap.io.memory.size</name>
     <value>1073741824</value>
   </property>
   
