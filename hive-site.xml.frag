@@ -248,5 +248,15 @@
     <name>hive.fetch.task.conversion.threshold</name>
     <value>640000000</value>
   </property>
+  
+  <property>
+    <name>hive.metastore.schema.verification.record.version</name>
+    <value>false</value>
+  </property>
+  
+  <property>
+    <name>hive.metastore.schema.verification</name>
+    <value>false</value>
+  </property>
 
 </configuration>
