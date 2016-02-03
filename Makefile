@@ -1,6 +1,8 @@
 
 YUM:=$(shell which yum)
 APT:=$(shell which apt-get)
+# ubuntu uses rename.ul
+RENAME=$(shell which rename.ul || which rename)
 HADOOP:=$(shell which hadoop)
 MVN:=../dist/maven/bin/mvn
 TOOLS=git gcc #cmake pdsh
@@ -26,9 +28,10 @@ MINIMIZE=false
 METASTORE=false
 LOGLEVEL=WARN
 
+
 ALL_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | cut -f 1 -d: | tr "\n" ,) 
 NUM_NODES=$(shell yarn node -list 2> /dev/null | grep RUNNING | wc -l)
-FIRST_HOST=$(shell yarn node -list 2> /dev/null | grep RUNNING | head -n 1 | cut -f 1 -d ' ')
+FIRST_HOST=$(shell yarn node -list 2> /dev/null | grep RUNNING | head -n 1 | sed 's/^ *//' | cut -f 1 -d ' ')
 NODE_STATUS=$(shell yarn node -status $(FIRST_HOST) 2> /dev/null)
 NODE_MEM=$(shell echo '$(NODE_STATUS)' | grep "Memory-Capacity" | sed "s/.*Memory-Capacity : \([0-9]*\).*/\1/g" ) 
 NODE_CORES=$(shell echo '$(NODE_STATUS)' | grep "CPU-Capacity" | sed "s/.*CPU-Capacity : \([0-9]*\).*/\1/g" ) 
@@ -84,7 +87,7 @@ tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
-	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Phadoop24 -P\!hadoop26 $$($(OFFLINE) && echo "-o");
+	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Pazure -Phadoop24 -Phadoop26 $$($(OFFLINE) && echo "-o");
 	# for hadoop version < 2.4.0, use -P\!hadoop24 -P\!hadoop26
 
 clean-tez:
@@ -147,7 +150,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	    || (cp hive-site.xml.default $(INSTALL_ROOT)/hive/conf/hive-site.xml && sed -i~ "s@HOSTNAME@$$(hostname)@" $(INSTALL_ROOT)/hive/conf/hive-site.xml)
 	echo "export HADOOP_CLASSPATH=$(INSTALL_ROOT)/tez/*:$(INSTALL_ROOT)/tez/lib/*:$(INSTALL_ROOT)/tez/conf/:/usr/share/java/*:$$HADOOP_CLASSPATH" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	echo "export HADOOP_USER_CLASSPATH_FIRST=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
-	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" -e "s/-Xms10m//" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
+	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ -e "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" -e "s/-Xms10m//" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
 		|| echo "export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/" > $(INSTALL_ROOT)/hive/conf/hive-env.sh
 	sed -e "s@hdfs:///user/hive/@$$\{fs.default.name\}$(APP_PATH)/hive/@" hive-site.xml.frag > hive-site.xml.local
 	sed -i~ \
@@ -159,11 +162,11 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
 	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j.properties.template)" != "" ]; then\
 		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
-		rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
+		$(RENAME) .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
 	fi
 	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template)" != "" ]; then\
 		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template; \
-		rename .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template; \
+		$(RENAME) .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template; \
 	fi
 	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-$(HIVE_VERSION).jar"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
