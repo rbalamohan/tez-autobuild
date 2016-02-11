@@ -259,4 +259,15 @@
     <value>false</value>
   </property>
 
+  <property>
+    <name>hive.llap.daemon.service.hosts</name>
+    <value>@llap0</value>
+    <description>Comma separate list of nodes running daemons</description>
+  </property>
+
+  <property>
+    <name>hive.llap.daemon.allow.permanent.fns</name>
+    <value>false</value>
+  </property>
+
 </configuration>
