@@ -20,7 +20,7 @@ endif
 APP_PATH:=$(shell echo /user/$$USER/apps/llap-`date +%Y-%b-%d`/)
 HISTORY_PATH:=$(shell echo /user/$$USER/tez-history/build=`date +%Y-%b-%d`/)
 INSTALL_ROOT:=$(shell echo $$PWD/dist/)
-HIVE_CONF_DIR=/etc/hive/conf/
+HIVE_CONF_DIR=$(shell test -d /etc/hive/conf/conf.server && echo /etc/hive/conf/conf.server || echo /etc/hive/conf/)
 OFFLINE=false
 REBASE=false
 CLEAN=clean
