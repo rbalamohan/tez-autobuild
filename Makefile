@@ -152,15 +152,15 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	echo "export HADOOP_USER_CLASSPATH_FIRST=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ -e "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" -e "s/-Xms10m//" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
 		|| echo -e "export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/\nexport HIVE_SKIP_SPARK_ASSEMBLY=true" > $(INSTALL_ROOT)/hive/conf/hive-env.sh
-	sed -e "s@hdfs:///user/hive/@$$\{fs.default.name\}$(APP_PATH)/hive/@" hive-site.xml.frag > hive-site.xml.local
+	sed -e "s@hdfs:///user/hive/@$$\{fs.default.name\}$(APP_PATH)/hive/@" \
+	-e "s/localhost/$(ALL_NODES)/g" \
+	-e "s/4096/"$$(($(NODE_MEM)/2))"/g" \
+	-e "s/>4</>"$$(($(NODE_CORES)/2))"</g" hive-site.xml.frag > hive-site.xml.local
 	sed -i~ \
 	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
 	-e "s/org.apache.atlas.hive.hook.HiveHook//" \
 	$$($(METASTORE) || echo '-e s@thrift://[^<]*@@') \
 	-e "/<.configuration>/r hive-site.xml.local" \
-	-e "s/localhost/$(ALL_NODES)/g" \
-	-e "s/4096/"$$(($(NODE_MEM)/2))"/g" \
-	-e "s/>4</>"$$(($(NODE_CORES)/2))"</g" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
 	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j.properties.template)" != "" ]; then\
