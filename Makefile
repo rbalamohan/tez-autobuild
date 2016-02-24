@@ -158,6 +158,9 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "s/org.apache.atlas.hive.hook.HiveHook//" \
 	$$($(METASTORE) || echo '-e s@thrift://[^<]*@@') \
 	-e "/<.configuration>/r hive-site.xml.local" \
+	-e "s/localhost/$(ALL_NODES)/g" \
+	-e "s/4096/"$$(($(NODE_MEM)/2))"/g" \
+	-e "s/>4</>"$$(($(NODE_CORES)/2))"</g" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
 	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j.properties.template)" != "" ]; then\
@@ -173,10 +176,6 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-llap-server-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -chmod -R a+r $(APP_PATH)/"
-	sed -e "s/localhost/$(ALL_NODES)/g" \
-	-e "s/4096/"$$(($(NODE_MEM)/2))"/g" \
-	-e "s/>4</>"$$(($(NODE_CORES)/2))"</g" \
-	llap-daemon-site.xml.frag > $(INSTALL_ROOT)/hive/conf/llap-daemon-site.xml
 
 run: 
 	./dist/hive/bin/hive --service llap --instances $(NUM_NODES)
