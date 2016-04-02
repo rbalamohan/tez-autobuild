@@ -72,15 +72,15 @@
   </property>
   <property>
     <name>hive.server2.thrift.http.port</name>
-    <value>10001</value>
+    <value>10004</value>
   </property>
   <property>
     <name>hive.server2.webui.port</name>
-    <value>10002</value>
+    <value>10005</value>
   </property>
   <property>
     <name>hive.server2.thrift.port</name>
-    <value>10003</value>
+    <value>10007</value>
   </property>
   <property>
     <name>hive.server2.tez.default.queues</name>
@@ -290,7 +290,7 @@
 
   <property>
     <name>hive.llap.io.threadpool.size</name>
-  <value>4</value>
+  <value>24</value>
   <description>Number of IO threads for each daemon</description>
   </property>
 
