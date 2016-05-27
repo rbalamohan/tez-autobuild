@@ -150,6 +150,15 @@
     <name>hive.vectorized.execution.mapjoin.native.fast.hashtable.enabled</name>
     <value>true</value>
   </property>
+  <!-- vectorize more -->
+  <property>
+    <name>hive.vectorized.use.vector.serde.deserialize</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hive.vectorized.use.row.serde.deserialize</name>
+    <value>true</value>
+  </property>
   <property>
     <name>hive.mapjoin.hybridgrace.hashtable</name>
     <value>false</value>
