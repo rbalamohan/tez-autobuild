@@ -6,7 +6,7 @@ MVN:=../dist/maven/bin/mvn
 TOOLS=git gcc cmake pdsh
 TEZ_VERSION=0.8.4-SNAPSHOT
 TEZ_BRANCH=master
-HIVE_VERSION=2.1.0-SNAPSHOT
+HIVE_VERSION=2.2.0-SNAPSHOT
 HIVE_BRANCH=master
 HDFS=$(shell id hdfs 2> /dev/null)
 # try to build against local hadoop always
