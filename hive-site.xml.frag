@@ -12,8 +12,7 @@
   </property>
   <property>
     <name>hive.vectorized.execution.reduce.enabled</name>
-    <!-- Setting to false until HIVE-12534 is fixed-->
-    <value>false</value>
+    <value>true</value>
   </property>
   <property>
     <name>hive.limit.pushdown.memory.usage</name>
@@ -328,5 +327,11 @@
     <name>mapreduce.shuffle.connection-keep-alive.timeout</name>
     <value>60</value>
   </property>
+
+  <property>
+    <name>hive.llap.io.allocator.mmap</name>
+    <value>false</value>
+  </property>
+
 
 </configuration>
