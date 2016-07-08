@@ -4,7 +4,7 @@ APT:=$(shell which apt-get)
 # ubuntu uses rename.ul
 RENAME=$(shell which rename.ul || which rename)
 HADOOP:=$(shell which hadoop)
-MVN:=../dist/maven/bin/mvn
+MVN:=unset M2_HOME; ../dist/maven/bin/mvn
 TOOLS=git gcc #cmake pdsh
 TEZ_VERSION=0.9.0-SNAPSHOT
 TEZ_BRANCH=master
@@ -103,7 +103,7 @@ hive: tez-dist.tar.gz
 	fi
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
-	$(MVN) $(CLEAN) package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o");
+	$(MVN) $(CLEAN) package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
 
 clean-hive:
 	rm -rf hive
