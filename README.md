@@ -32,7 +32,7 @@ Finally, to test this out, you can do
     # ./dist/hive/bin/hive
     hive> select count(1) from sample_07;
 
-and it should use LLAP.
+and it should use LLAP. Switch in and out with `hive.llap.execution.mode`, the execution will switch between `container` and `llap`.
 
 ![alt tag](http://people.apache.org/~gopalv/LLAP.gif)
 
