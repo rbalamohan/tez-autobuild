@@ -292,19 +292,19 @@
 
   <property>
     <name>hive.llap.daemon.num.executors</name>
-    <value>4</value>
+    <value>__NODE_CORES__</value>
     <description>Num executors for each daemon</description>
   </property>
 
   <property>
     <name>hive.llap.io.threadpool.size</name>
-  <value>24</value>
+  <value>__NODE_CORES__</value>
   <description>Number of IO threads for each daemon</description>
   </property>
 
   <property>
     <name>hive.llap.daemon.memory.per.instance.mb</name>
-    <value>4096</value>
+    <value>__NODE_MEM__</value>
   </property>
 
   <property>

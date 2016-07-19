@@ -153,9 +153,9 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ -e "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" -e "s/-Xms10m//" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
 		|| echo -e "export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/\nexport HIVE_SKIP_SPARK_ASSEMBLY=true" > $(INSTALL_ROOT)/hive/conf/hive-env.sh
 	sed -e "s@hdfs:///user/hive/@$$\{fs.default.name\}$(APP_PATH)/hive/@" \
-	-e "s/localhost/$(ALL_NODES)/g" \
-	-e "s/4096/"$$(($(NODE_MEM)/2))"/g" \
-	-e "s/>4</>"$$(($(NODE_CORES)/2))"</g" hive-site.xml.frag > hive-site.xml.local
+	-e "s/__NODES__/$(ALL_NODES)/g" \
+	-e "s/__NODE_MEM__/"$$(($(NODE_MEM)/2))"/g" \
+	-e "s/>__NODE_CORES__</>"$$(($(NODE_CORES)/2))"</g" hive-site.xml.frag > hive-site.xml.local
 	sed -i~ \
 	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
 	-e "s/org.apache.atlas.hive.hook.HiveHook//" \
