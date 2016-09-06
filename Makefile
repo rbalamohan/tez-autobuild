@@ -59,7 +59,7 @@ ant:
 	-- yum -y remove ant
 
 protobuf: git 
-	$(OFFLINE) || wget -c http://protobuf.googlecode.com/files/protobuf-2.5.0.tar.bz2
+	$(OFFLINE) || wget -c https://github.com/google/protobuf/releases/download/v2.5.0/protobuf-2.5.0.tar.bz2
 	tar -xvf protobuf-2.5.0.tar.bz2
 	test -f $(INSTALL_ROOT)/protoc/bin/protoc || \
 	(cd protobuf-2.5.0; \
