@@ -163,6 +163,9 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
+	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/hivemetastore-site.xml)" != "" ]; then\
+		sed -i~ "s/JSON_FILE,//" $(INSTALL_ROOT)/hive/conf/hivemetastore-site.xml; \
+	fi 
 	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/*log4j.properties.template)" != "" ]; then\
 		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
 		$(RENAME) .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j.properties.template; \
