@@ -10,6 +10,7 @@ TEZ_VERSION=0.9.0-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=2.2.0-SNAPSHOT
 HIVE_BRANCH=master
+MAVEN_VERSION=3.2.5
 HDFS=$(shell id hdfs 2> /dev/null)
 # try to build against local hadoop always
 ifneq ($(HADOOP),)
@@ -57,9 +58,9 @@ ifneq ($(APT),)
 endif
 
 maven: 
-	$(OFFLINE) || wget -c http://www.us.apache.org/dist/maven/maven-3/3.0.5/binaries/apache-maven-3.0.5-bin.tar.gz
+	$(OFFLINE) || wget -c http://www.us.apache.org/dist/maven/maven-3/$(MAVEN_VERSION)/binaries/apache-maven-$(MAVEN_VERSION)-bin.tar.gz
 	-- mkdir -p $(INSTALL_ROOT)/maven/
-	tar -C $(INSTALL_ROOT)/maven/ --strip-components=1 -xzvf apache-maven-3.0.5-bin.tar.gz
+	tar -C $(INSTALL_ROOT)/maven/ --strip-components=1 -xzvf apache-maven-$(MAVEN_VERSION)-bin.tar.gz
 	-- sed -i~ -e "/<profiles>/r vendor-repos.xml" $(INSTALL_ROOT)/maven/conf/settings.xml  
 
 ant: 
