@@ -91,18 +91,22 @@
     <name>javax.jdo.option.ConnectionURL</name>
     <value>jdbc:mysql://HOSTNAME/hive?createDatabaseIfNotExist=true</value>
   </property>
+  <!--
     <property>
     <name>hive.enforce.bucketing</name>
     <value>true</value>
   </property>
+  -->
     <property>
     <name>hive.metastore.execute.setugi</name>
     <value>true</value>
   </property>
+  <!--
     <property>
     <name>hive.enforce.sorting</name>
     <value>true</value>
   </property>
+  -->
     <property>
     <name>hive.semantic.analyzer.factory.impl</name>
     <value>org.apache.hivealog.cli.HCatSemanticAnalyzerFactory</value>
