@@ -1,3 +1,9 @@
+  <!-- HIVE-13696 breaks deployments with CapacityScheduler. Turn off on need basis.
+  <property>
+    <name>hive.server2.map.fair.scheduler.queue</name>
+    <value>false</value>
+  </property>
+  -->
   <property>
     <name>hive.mapred.mode</name>
     <value>nonstrict</value>
