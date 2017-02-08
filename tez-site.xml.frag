@@ -121,7 +121,7 @@
   </property>
   <!-- ~4x counters due to per-io -->
   <property>
-    <name>tez.runtime.job.counters.max</name>
+    <name>tez.counters.max</name>
     <value>4096</value>
   </property>
   <property>
