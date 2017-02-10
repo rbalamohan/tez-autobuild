@@ -182,9 +182,13 @@
     <value>false</value>
   </property>
   <property>
-    <!-- Starting 0.7 -->
+    <name>tez.runtime.enable.final-merge.in.output</name>
+    <value>false</value>
+  </property>
+  <property>
+    <!-- Starting 0.7 (disabled, the final-merge option is better for failures) -->
     <name>tez.runtime.pipelined-shuffle.enabled</name>
-    <value>true</value>
+    <value>false</value>
   </property>
   <property>
     <name>tez.runtime.shuffle.use.async.http</name>
