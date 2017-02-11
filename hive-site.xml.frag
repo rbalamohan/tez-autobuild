@@ -315,8 +315,7 @@
 
   <property>
     <name>hive.llap.daemon.task.scheduler.enable.preemption</name>
-    <value>false</value>
-    <description>disable pre-emption</description>
+    <value>true</value>
   </property>
 
   <property>
