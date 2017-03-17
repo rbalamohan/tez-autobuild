@@ -97,7 +97,7 @@
   </property>
   <property>
     <name>hive.server2.tez.sessions.per.default.queue</name>
-    <value>4</value>
+    <value>1</value>
   </property>
   <property>
     <name>hive.server2.tez.initialize.default.sessions</name>
