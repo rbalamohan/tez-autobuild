@@ -5,6 +5,10 @@
   </property>
   -->
   <property>
+    <name>hive.merge.nway.joins</name>
+    <value>false</value>
+  </property>
+  <property>
     <name>hive.mapred.mode</name>
     <value>nonstrict</value>
   </property>
