@@ -5,11 +5,14 @@ APT:=$(shell which apt-get)
 RENAME=$(shell which rename.ul || which rename)
 HADOOP:=$(shell which hadoop)
 MVN:=unset M2_HOME; ../dist/maven/bin/mvn
+MVN2:=unset M2_HOME; ../../dist/maven/bin/mvn
 TOOLS=git gcc #cmake pdsh
 TEZ_VERSION=0.9.0-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=2.2.0-SNAPSHOT
 HIVE_BRANCH=master
+ORC_VERSION=1.4.0-SNAPSHOT
+ORC_BRANCH=master
 MAVEN_VERSION=3.2.5
 HDFS=$(shell id hdfs 2> /dev/null)
 # try to build against local hadoop always
@@ -97,7 +100,8 @@ clean-tez:
 hive: tez-dist.tar.gz 
 	test -d hive || git clone --branch $(HIVE_BRANCH) https://github.com/apache/hive
 	cd hive; if $(REBASE); then (git stash; git clean -f -d; git pull --rebase;); fi
-	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml
+	cd hive; sed -i~ "s@<tez.version>.*</tez.version>@<tez.version>$(TEZ_VERSION)</tez.version>@" pom.xml; \
+	sed -i~ "s@<orc.version>.*</orc.version>@<orc.version>$(ORC_VERSION)</orc.version>@" pom.xml
 	# this was a stupid change
 	if test "$(TEZ_VERSION)" != "0.8.2"; then \
 	  (cd hive; patch -R -N -p0 -f -i ../hive-tez-0.8.patch --dry-run 2> /dev/null || patch -N -p0 -f -i ../hive-tez-0.8.patch) \
@@ -108,6 +112,15 @@ hive: tez-dist.tar.gz
 
 clean-hive:
 	rm -rf hive
+
+orc-java: git maven protobuf
+	test -d orc || git clone --branch $(ORC_BRANCH) https://github.com/apache/orc.git orc
+	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
+	cd orc/java; . /etc/profile; \
+	$(MVN2) $(CLEAN) install -DskipTests $$($(OFFLINE) && echo "-o");
+
+clean-orc:
+	rm -rf orc
 
 dist-tez: tez 
 	cp tez/tez-dist/target/tez-$(TEZ_VERSION).tar.gz tez-dist.tar.gz
@@ -187,7 +200,7 @@ run:
 clean-dist:
 	rm -rf $(INSTALL_ROOT)
 
-clean-all: clean clean-tez clean-hive clean-protobuf
+clean-all: clean clean-tez clean-hive clean-orc clean-protobuf
 
 clean: clean-dist
 
