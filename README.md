@@ -24,6 +24,10 @@ it generates a run.sh script in the local dir with the configuration for running
 Confirm slider is running with
 
         slider status llap0
+        
+Alternatively, hive llap status tool can be used to check if all nodes are running llap daemons
+
+        ./dist/hive/bin/hive --service llapstatus -w
 
 If that fails to startup, check whether you have JDK8 in the right location specified in JAVA_HOME.
 
