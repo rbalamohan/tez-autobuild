@@ -9,6 +9,14 @@
     <value>false</value>
   </property>
   <property>
+    <name>hive.vectorized.groupby.maxentries</name>
+    <value>1000000</value>
+  </property>
+  <property>
+    <name>hive.vectorized.groupby.checkinterval</name>
+    <value>100000</value>
+  </property>
+  <property>
     <name>hive.merge.nway.joins</name>
     <value>false</value>
   </property>
