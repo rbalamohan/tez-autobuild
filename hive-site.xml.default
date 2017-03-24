@@ -133,11 +133,11 @@
   </property>
   <property>
     <name>hive.vectorized.groupby.maxentries</name>
-    <value>10000</value>
+    <value>1000000</value>
   </property>
   <property>
     <name>hive.vectorized.groupby.checkinterval</name>
-    <value>10000</value>
+    <value>100000</value>
   </property>
   <property>
     <name>hive.input.format</name>
