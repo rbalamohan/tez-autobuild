@@ -146,7 +146,7 @@
     <name>tez.history.logging.service.class</name>
     <value>org.apache.tez.dag.history.logging.impl.SimpleHistoryLoggingService</value>
 <!-- disable ATS
-    <value>org.apache.tez.dag.history.logging.ats.ATSHistoryLoggingService</value>
+    <value>org.apache.tez.dag.history.logging.ats.ATSV15HistoryLoggingService</value>
 -->
   </property>
   <property>
