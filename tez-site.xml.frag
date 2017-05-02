@@ -235,4 +235,8 @@
     <name>tez.am.dag.scheduler.class</name>
     <value>org.apache.tez.dag.app.dag.impl.DAGSchedulerNaturalOrderControlled</value>
   </property>
+  <property>
+    <name>tez.am.node-blacklisting.enabled</name>
+    <value>false</value>
+  </property>
 </configuration>
