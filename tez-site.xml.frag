@@ -225,4 +225,14 @@
     <name>tez.dag.recovery.enabled</name>
     <value>true</value>
   </property>
+  <!-- Re-schedule tasks which were running on nodes which may have failed
+       Shuffle data is not availalbe after a node crash for LLAP -->
+  <property>
+    <name>tez.am.node-unhealthy-reschedule-tasks</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>tez.am.dag.scheduler.class</name>
+    <value>org.apache.tez.dag.app.dag.impl.DAGSchedulerNaturalOrderControlled</value>
+  </property>
 </configuration>
