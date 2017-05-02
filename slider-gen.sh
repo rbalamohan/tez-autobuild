@@ -1,4 +1,4 @@
-export JAVA_HOME=/usr/jdk64/jdk1.8.0_77/
+export JAVA_HOME=$(echo /usr/jdk64/* | sort -n | tail -n 1)
 ./dist/hive/bin/hive\
  --service llap\
  --instances 1\
