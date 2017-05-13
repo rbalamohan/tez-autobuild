@@ -354,5 +354,9 @@
     <value>false</value>
   </property>
 
+  <property>
+    <name>hive.metastore.aggregate.stats.cache.enabled</name>
+    <value>false</value>
+  </property>
 
 </configuration>
