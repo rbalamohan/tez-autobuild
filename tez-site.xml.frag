@@ -239,4 +239,8 @@
     <name>tez.am.node-blacklisting.enabled</name>
     <value>false</value>
   </property>
+  <property>
+    <name>tez.am.task.reschedule.higher.priority</name>
+    <value>false</value>
+  </property>
 </configuration>
