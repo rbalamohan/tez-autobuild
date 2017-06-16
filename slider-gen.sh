@@ -1,4 +1,4 @@
-export JAVA_HOME=$(echo /usr/jdk64/* | sort -n | tail -n 1)
+export JAVA_HOME=$(ls -drt /usr/jdk64/jdk1.8* | tail -n 1)
 # one of those should work, I think
 if [ "x$JAVA_HOME" = "x" ]; then 
    export JAVA_HOME=$(ls -d /usr/lib/jvm/java-1.8.0-openjdk-*/ | head -n 1)
