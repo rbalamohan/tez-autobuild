@@ -196,10 +196,12 @@
     <name>tez.task.resource.calculator.process-tree.class</name>
     <value>org.apache.tez.util.TezMxBeanResourceCalculator</value>
   </property>
+<!-- Enable thisto convert user payload to history text
   <property>
     <name>tez.runtime.convert.user-payload.to.history-text</name>
     <value>true</value>
   </property>
+-->
   <property>
     <name>tez.runtime.report.partition.stats</name>
     <value>true</value>
