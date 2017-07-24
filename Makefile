@@ -108,7 +108,7 @@ hive: tez-dist.tar.gz
 	fi
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
-	$(MVN) $(CLEAN) package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
+	$(MVN) $(CLEAN) package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop.version=$(HADOOP_VERSION) -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
 
 clean-hive:
 	rm -rf hive
