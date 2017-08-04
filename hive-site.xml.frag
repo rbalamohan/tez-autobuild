@@ -6,7 +6,7 @@
   -->
   <property>
     <name>hive.tez.dynamic.semijoin.reduction</name>
-    <value>false</value>
+    <value>true</value>
   </property>
   <property>
     <name>hive.vectorized.groupby.maxentries</name>
