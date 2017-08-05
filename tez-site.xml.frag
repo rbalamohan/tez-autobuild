@@ -21,7 +21,7 @@
   <property>
     <name>tez.task.timeout-ms</name>
     <!-- after 3  heartbeats -->
-    <value>15000</value>
+    <value>60000</value>
   </property>
   <property>
     <name>ipc.client.connect.timeout</name>
