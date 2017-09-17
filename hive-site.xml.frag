@@ -57,7 +57,6 @@
     <value>4</value>
   </property>
   <!-- Properties to generate consistent splits in LLAP, and cache locality. Also see tez-site.xml.frag --> 
-  <!--
   <property>
     <name>hive.tez.input.generate.consistent.splits</name>
     <value>true</value>
@@ -70,6 +69,7 @@
     <name>hive.llap.task.scheduler.locality.delay</name>
     <value>-1</value>
   </property>
+<!--
   <property>
     <name>hive.exec.orc.split.strategy</name>
     <value>BI</value>
