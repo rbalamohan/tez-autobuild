@@ -7,7 +7,7 @@ HADOOP:=$(shell which hadoop)
 MVN:=unset M2_HOME; ../dist/maven/bin/mvn
 MVN2:=unset M2_HOME; ../../dist/maven/bin/mvn
 TOOLS=git gcc #cmake pdsh
-TEZ_VERSION=0.9.0-SNAPSHOT
+TEZ_VERSION=0.9.2-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=3.0.0-SNAPSHOT
 HIVE_BRANCH=master
@@ -24,7 +24,8 @@ endif
 APP_PATH:=$(shell echo /user/$$USER/apps/llap-`date +%Y-%b-%d`/)
 HISTORY_PATH:=$(shell echo /user/$$USER/tez-history/build=`date +%Y-%b-%d`/)
 INSTALL_ROOT:=$(shell echo $$PWD/dist/)
-HIVE_CONF_DIR=$(shell test -d /etc/hive/conf/conf.server && echo /etc/hive/conf/conf.server || echo /etc/hive/conf/)
+HIVE_CONF_DIR:=$(shell test -d /etc/hive/conf/conf.server && echo /etc/hive/conf/conf.server || echo /etc/hive/conf/)
+HIVE_CONF_SUDO:=$(shell test -r $(HIVE_CONF_DIR)/hive-site.xml || echo sudo)
 OFFLINE=false
 REBASE=false
 CLEAN=clean
@@ -91,7 +92,7 @@ tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
-	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Pazure -Phadoop24 -Phadoop26 $$($(OFFLINE) && echo "-o");
+	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Pazure -Phadoop28 $$($(OFFLINE) && echo "-o");
 	# for hadoop version < 2.4.0, use -P\!hadoop24 -P\!hadoop26
 
 clean-tez:
@@ -108,7 +109,7 @@ hive: tez-dist.tar.gz
 	fi
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
-	$(MVN) $(CLEAN) package -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop.version=$(HADOOP_VERSION) -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
+	$(MVN) $(CLEAN) package -e -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop.version=$(HADOOP_VERSION) -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
 
 clean-hive:
 	rm -rf hive
@@ -160,7 +161,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	rm -rf $(INSTALL_ROOT)/hive
 	mkdir -p $(INSTALL_ROOT)/hive
 	tar -C $(INSTALL_ROOT)/hive -xzvf hive-dist.tar.gz
-	(test -d $(HIVE_CONF_DIR) && rsync -avP $(HIVE_CONF_DIR)/ $(INSTALL_ROOT)/hive/conf/) \
+	(test -d $(HIVE_CONF_DIR) && $(HIVE_CONF_SUDO) rsync -avP $(HIVE_CONF_DIR)/ $(INSTALL_ROOT)/hive/conf/ && $(HIVE_CONF_SUDO) chown -Rv $$USER  $(INSTALL_ROOT)/hive/conf/) \
 	    || (cp hive-site.xml.default $(INSTALL_ROOT)/hive/conf/hive-site.xml && sed -i~ "s@HOSTNAME@$$(hostname)@" $(INSTALL_ROOT)/hive/conf/hive-site.xml)
 	echo "export HADOOP_CLASSPATH=$(INSTALL_ROOT)/tez/*:$(INSTALL_ROOT)/tez/lib/*:$(INSTALL_ROOT)/tez/conf/:$$HADOOP_CLASSPATH" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	echo "export HADOOP_USER_CLASSPATH_FIRST=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
@@ -173,6 +174,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	sed -i~ \
 	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
 	-e "s/org.apache.atlas.hive.hook.HiveHook//" \
+	-e "s@jceks://file/usr/hdp/current/hive-server2/conf/hive-site.jceks@jceks://file/$(INSTALL_ROOT)/hive/conf/hive-site.jceks@" \
 	$$($(METASTORE) || echo '-e s@thrift://[^<]*@@') \
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \

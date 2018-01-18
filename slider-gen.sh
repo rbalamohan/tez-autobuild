@@ -1,4 +1,4 @@
-export JAVA_HOME=$(ls -drt /usr/jdk64/jdk1.8* | tail -n 1)
+#export JAVA_HOME=$(ls -drt /usr/jdk64/jdk1.9* | tail -n 1)
 # one of those should work, I think
 if [ "x$JAVA_HOME" = "x" ]; then 
    export JAVA_HOME=$(ls -d /usr/lib/jvm/java-1.8.0-openjdk-*/ | head -n 1)
@@ -9,11 +9,11 @@ fi
  --service llap\
  --instances 1\
  --cache 32000m\
- --executors 24\
- --iothreads 24\
+ --executors 32\
+ --iothreads 32\
  --size 180000m\
  --xmx 128000m\
  --loglevel INFO\
- --args "-XX:+UseG1GC -XX:TLABSize=128m -XX:+ResizeTLAB -XX:+UseNUMA -XX:+AggressiveOpts -XX:MetaspaceSize=1024m -XX:InitiatingHeapOccupancyPercent=80 -XX:MaxGCPauseMillis=200 -XX:+PreserveFramePointer -XX:AllocatePrefetchStyle=2 -Dhttp.maxConnections=10"\
+ --args "-XX:+UseG1GC -XX:+ResizeTLAB -XX:+UseNUMA -XX:+AggressiveOpts -XX:MetaspaceSize=1024m -XX:InitiatingHeapOccupancyPercent=80 -XX:MaxGCPauseMillis=200 -XX:+PreserveFramePointer -XX:AllocatePrefetchStyle=2 -Dhttp.maxConnections=10"\
  --javaHome $JAVA_HOME
  # --queue llap \
