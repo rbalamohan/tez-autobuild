@@ -90,6 +90,7 @@ mysql:
 
 tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
+	sed -i~ -e "s@<hadoop.version>.*</hadoop.version>@<hadoop.version>$(HADOOP_VERSION)</hadoop.version>@" tez/pom.xml
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
 	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Pazure -Phadoop28 $$($(OFFLINE) && echo "-o");
@@ -109,7 +110,7 @@ hive: tez-dist.tar.gz
 	fi
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
-	$(MVN) $(CLEAN) package -e -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop.version=$(HADOOP_VERSION) -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
+	$(MVN) $(CLEAN) dependency:tree package -e -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop.version=$(HADOOP_VERSION) -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
 
 clean-hive:
 	rm -rf hive
@@ -162,7 +163,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	mkdir -p $(INSTALL_ROOT)/hive
 	tar -C $(INSTALL_ROOT)/hive -xzvf hive-dist.tar.gz
 	(test -d $(HIVE_CONF_DIR) && $(HIVE_CONF_SUDO) rsync -avP $(HIVE_CONF_DIR)/ $(INSTALL_ROOT)/hive/conf/ && $(HIVE_CONF_SUDO) chown -Rv $$USER  $(INSTALL_ROOT)/hive/conf/) \
-	    || (cp hive-site.xml.default $(INSTALL_ROOT)/hive/conf/hive-site.xml && sed -i~ "s@HOSTNAME@$$(hostname)@" $(INSTALL_ROOT)/hive/conf/hive-site.xml)
+	    || (cp hive-site.xml.default $(INSTALL_ROOT)/hive/conf/hive-site.xml && sed -i~ -e "s@HOSTNAME@$$(hostname)@" -e "s@USER@$$USER@" $(INSTALL_ROOT)/hive/conf/hive-site.xml)
 	echo "export HADOOP_CLASSPATH=$(INSTALL_ROOT)/tez/*:$(INSTALL_ROOT)/tez/lib/*:$(INSTALL_ROOT)/tez/conf/:$$HADOOP_CLASSPATH" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	echo "export HADOOP_USER_CLASSPATH_FIRST=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ -e "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" -e "s/-Xms10m//" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \

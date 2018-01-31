@@ -227,7 +227,7 @@
     <name>hive.llap.auto.allow.uber</name>
     <value>false</value>
   </property>
-<!-- disable ACID -->
+<!-- disable ACID 
   <property>
     <name>hive.txn.manager</name>
     <value>org.apache.hadoop.hive.ql.lockmgr.DummyTxnManager</value>
@@ -236,8 +236,9 @@
     <name>hive.support.concurrency</name>
     <value>false</value>
   </property>
+-->
 <!--
-  this is metastore configs for ACID impl
+  this is metastore configs for ACID impl -->
   <property>
     <name>hive.support.concurrency</name>
     <value>true</value>
@@ -258,7 +259,7 @@
     <name>hive.compactor.worker.threads</name>
     <value>1</value>
   </property>
--->
+
   <property>
     <name>hive.vectorized.execution.mapjoin.native.enabled</name>
     <value>true</value>
@@ -291,7 +292,7 @@
 
   <property>
     <name>hive.llap.daemon.service.hosts</name>
-    <value>@llap0</value>
+    <value>@USER-llap0</value>
     <description>Comma separate list of nodes running daemons</description>
   </property>
 
