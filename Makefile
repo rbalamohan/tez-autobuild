@@ -171,7 +171,8 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	sed -e "s@hdfs:///user/hive/@$$\{fs.default.name\}$(APP_PATH)/hive/@" \
 	-e "s/__NODES__/$(ALL_NODES)/g" \
 	-e "s/__NODE_MEM__/"$$(($(NODE_MEM)/2))"/g" \
-	-e "s/>__NODE_CORES__</>"$$(($(NODE_CORES)/2))"</g" hive-site.xml.frag > hive-site.xml.local
+	-e "s/>__NODE_CORES__</>"$$(($(NODE_CORES)/2))"</g" \
+	-e "s@USER@$$USER@" hive-site.xml.frag > hive-site.xml.local
 	sed -i~ \
 	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
 	-e "s/org.apache.atlas.hive.hook.HiveHook//" \
@@ -191,6 +192,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 		sed -i~ "s/INFO/$(LOGLEVEL)/" $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template; \
 		$(RENAME) .properties.template .properties $(INSTALL_ROOT)/hive/conf/*log4j2.properties.template; \
 	fi
+	sed -i~ -e "s/address=8000/address=$$(( $$UID - 1000 + 8000 ))/"  $(INSTALL_ROOT)/hive/bin/ext/debug.sh 
 	$(AS_HDFS) -c "hadoop fs -rm -f $(APP_PATH)/hive/hive-exec-$(HIVE_VERSION).jar"
 	$(AS_HDFS) -c "hadoop fs -mkdir -p $(APP_PATH)/hive/"
 	$(AS_HDFS) -c "hadoop fs -copyFromLocal -f $(INSTALL_ROOT)/hive/lib/hive-exec-$(HIVE_VERSION).jar $(APP_PATH)/hive/"
