@@ -5,7 +5,7 @@ if [ "x$JAVA_HOME" = "x" ]; then
    export JAVA_HOME=$(ls -d /usr/lib/jvm/java-1.8.0-openjdk-*/ | head -n 1)
 fi
 
-if [ "x$HADOOP_HOME" = "x" ] && [ test -d /usr/hdp ] ; then
+if [ "x$HADOOP_HOME" = "x" ] && [ -d /usr/hdp ] ; then
 	export HADOOP_HOME=/usr/hdp/current/hadoop-client
 fi
 
