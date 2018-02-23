@@ -11,8 +11,9 @@ TEZ_VERSION=0.9.2-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=3.0.0-SNAPSHOT
 HIVE_BRANCH=master
-ORC_VERSION=1.3.3
+ORC_VERSION=1.4.3
 ORC_BRANCH=master
+GUAVA_VERSION=19.0
 MAVEN_VERSION=3.2.5
 HDFS=$(shell id hdfs 2> /dev/null)
 # try to build against local hadoop always
@@ -90,7 +91,10 @@ mysql:
 
 tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
-	sed -i~ -e "s@<hadoop.version>.*</hadoop.version>@<hadoop.version>$(HADOOP_VERSION)</hadoop.version>@" tez/pom.xml
+	sed -i~ \
+	    -e "s@<hadoop.version>.*</hadoop.version>@<hadoop.version>$(HADOOP_VERSION)</hadoop.version>@" \
+	    -e "s@<guava.version>.*</guava.version>@<guava.version>$(GUAVA_VERSION)</guava.version>@" \
+	            tez/pom.xml
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
 	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Pazure -Phadoop28 $$($(OFFLINE) && echo "-o");
