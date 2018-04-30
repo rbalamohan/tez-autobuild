@@ -204,7 +204,7 @@
   <property>
     <name>hive.llap.execution.mode</name>
     <!-- llap decider config -->
-    <value>all</value>
+    <value>only</value>
   </property>
   <property>
     <name>hive.llap.io.enabled</name>
