@@ -7,7 +7,7 @@ HADOOP:=$(shell which hadoop)
 MVN:=unset M2_HOME; ../dist/maven/bin/mvn
 MVN2:=unset M2_HOME; ../../dist/maven/bin/mvn
 TOOLS=git gcc #cmake pdsh
-TEZ_VERSION=0.9.2-SNAPSHOT
+TEZ_VERSION=0.10.0-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=3.0.0-SNAPSHOT
 HIVE_BRANCH=master
@@ -186,6 +186,12 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \
 	$(INSTALL_ROOT)/hive/conf/hive-site.xml    
+	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/hiveserver2-site.xml)" != "" ]; then \
+	    sed -i~ \
+		-e "/<.configuration>/r hiveserver2-site.xml.frag" \
+		-e "x;" \
+		$(INSTALL_ROOT)/hive/conf/hiveserver2-site.xml ;\
+	fi
 	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/hivemetastore-site.xml)" != "" ]; then\
 		sed -i~ "s/JSON_FILE,//" $(INSTALL_ROOT)/hive/conf/hivemetastore-site.xml; \
 	fi 
