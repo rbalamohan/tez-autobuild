@@ -170,6 +170,8 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	    || (cp hive-site.xml.default $(INSTALL_ROOT)/hive/conf/hive-site.xml && sed -i~ -e "s@HOSTNAME@$$(hostname)@" -e "s@USER@$$USER@" $(INSTALL_ROOT)/hive/conf/hive-site.xml)
 	echo "export HADOOP_CLASSPATH=$(INSTALL_ROOT)/tez/*:$(INSTALL_ROOT)/tez/lib/*:$(INSTALL_ROOT)/tez/conf/:$$HADOOP_CLASSPATH" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	echo "export HADOOP_USER_CLASSPATH_FIRST=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
+	echo "export IS_HIVE2=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
+	echo "export TEZ_CONF_DIR=$(INSTALL_ROOT)/tez/conf/" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	test -f $(INSTALL_ROOT)/tez/lib/slf4j-log4j12-1.7.10.jar && rm -vf $(INSTALL_ROOT)/tez/lib/slf4j-log4j12-1.7.10.jar
 	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ -e "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" -e "s/-Xms10m//" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
 		|| echo -e "export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/\nexport HIVE_SKIP_SPARK_ASSEMBLY=true" > $(INSTALL_ROOT)/hive/conf/hive-env.sh
@@ -182,6 +184,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
 	-e "s/org.apache.atlas.hive.hook.HiveHook//" \
 	-e "s@jceks://file/usr/hdp/current/hive-server2/conf/hive-site.jceks@jceks://file/$(INSTALL_ROOT)/hive/conf/hive-site.jceks@" \
+	-e "s@/tmp/hive/operation_logs@/tmp/$$USER/operation_logs@" \
 	$$($(METASTORE) || echo '-e s@thrift://[^<]*@@') \
 	-e "/<.configuration>/r hive-site.xml.local" \
 	-e "x;" \
