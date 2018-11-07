@@ -9,6 +9,8 @@ MVN2:=unset M2_HOME; ../../dist/maven/bin/mvn
 TOOLS=git gcc #cmake pdsh
 TEZ_VERSION=0.10.1-SNAPSHOT
 TEZ_BRANCH=master
+CALCITE_BRANCH=HDP-3.0-perf
+CALCITE_VERSION=1.17-perf3
 HIVE_VERSION=3.0.0-SNAPSHOT
 HIVE_BRANCH=master
 ORC_VERSION=1.4.3
@@ -228,8 +230,18 @@ run:
 clean-dist:
 	rm -rf $(INSTALL_ROOT)
 
-clean-all: clean clean-tez clean-hive clean-orc clean-protobuf
+clean-all: clean clean-tez clean-hive clean-orc clean-protobuf clean-calcite
 
 clean: clean-dist
 
-.PHONY: hive tez protobuf ant maven
+.PHONY: hive tez protobuf ant maven calcite
+
+calcite: git maven
+	test -d $@ || git clone --branch $(CALCITE_BRANCH) git@github.com:hortonworks/$@ $@
+	cd $@/; . /etc/profile; \
+	export PATH=$(INSTALL_ROOT)/maven/bin/:$$PATH; \
+	$(MVN) versions:set -DnewVersion=$(CALCITE_VERSION) ;\
+	$(MVN) $(CLEAN) install -Dcheckstyle.skip -DskipTests
+
+clean-calcite:
+	rm -rf calcite
