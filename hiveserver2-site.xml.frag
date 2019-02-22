@@ -1,5 +1,14 @@
 
     <property>
+      <name>hive.security.authorization.manager</name>
+      <value></value>
+    </property>
+    <property>
+      <name>hive.security.authorization.enabled</name>
+      <value>false</value>
+    </property>
+
+    <property>
       <name>hive.metastore.metrics.enabled</name>
       <value>false</value>
     </property>
@@ -47,6 +56,10 @@
     <property>
       <name>hive.metastore.fastpath</name>
       <value>true</value>
+    </property>
+    <property>
+      <name>hive.service.metrics.reporter</name>
+      <value>HADOOP2</value>
     </property>
 
 </configuration>

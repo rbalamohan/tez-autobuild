@@ -93,15 +93,15 @@
   </property>
   <property>
     <name>hive.server2.thrift.http.port</name>
-    <value>10004</value>
+    <value>11704</value>
   </property>
   <property>
     <name>hive.server2.webui.port</name>
-    <value>10005</value>
+    <value>11705</value>
   </property>
   <property>
     <name>hive.server2.thrift.port</name>
-    <value>10007</value>
+    <value>11703</value>
   </property>
   <property>
     <name>hive.server2.tez.default.queues</name>
@@ -357,6 +357,11 @@
 
   <property>
     <name>hive.metastore.aggregate.stats.cache.enabled</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>hive.privilege.synchronizer</name>
     <value>false</value>
   </property>
 

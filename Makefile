@@ -7,7 +7,7 @@ HADOOP:=$(shell which hadoop)
 MVN:=unset M2_HOME; ../dist/maven/bin/mvn
 MVN2:=unset M2_HOME; ../../dist/maven/bin/mvn
 TOOLS=git gcc #cmake pdsh
-TEZ_VERSION=0.10.0-SNAPSHOT
+TEZ_VERSION=0.10.1-SNAPSHOT
 TEZ_BRANCH=master
 HIVE_VERSION=3.0.0-SNAPSHOT
 HIVE_BRANCH=master
@@ -114,7 +114,7 @@ hive: tez-dist.tar.gz
 	fi
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$(INSTALL_ROOT)/ant/bin:$$PATH; \
 	cd hive/; . /etc/profile; \
-	$(MVN) $(CLEAN) dependency:tree package -e -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop.version=$(HADOOP_VERSION) -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
+	$(MVN) $(CLEAN) dependency:tree package -e -Denforcer.skip=true -DskipTests=true -Pdir -Pdist -Phadoop-2 -Dhadoop.version=$(HADOOP_VERSION) -Dhadoop-0.23.version=$(HADOOP_VERSION) -Dmaven.javadoc.skip=true -T 1C -Dbuild.profile=nohcat -Dpackaging.minimizeJar=$(MINIMIZE) $$($(OFFLINE) && echo "-o"); 
 
 clean-hive:
 	rm -rf hive
@@ -173,7 +173,12 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	echo "export IS_HIVE2=true" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	echo "export TEZ_CONF_DIR=$(INSTALL_ROOT)/tez/conf/" >> $(INSTALL_ROOT)/hive/bin/hive-config.sh
 	test -f $(INSTALL_ROOT)/tez/lib/slf4j-log4j12-1.7.10.jar && rm -vf $(INSTALL_ROOT)/tez/lib/slf4j-log4j12-1.7.10.jar
-	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && sed -i~ -e "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" -e "s/-Xms10m//" $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
+	(test -f $(INSTALL_ROOT)/hive/conf/hive-env.sh && \
+	sed -i~ \
+	-e "s@export HIVE_CONF_DIR=.*@export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/@" \
+	-e "s/-Xms10m//" \
+	-e "s@/usr/hdp/current/hive-webhcat/share/hcatalog/hive-hcatalog-core.jar@@" \
+	   $(INSTALL_ROOT)/hive/conf/hive-env.sh) \
 		|| echo -e "export HIVE_CONF_DIR=$(INSTALL_ROOT)/hive/conf/\nexport HIVE_SKIP_SPARK_ASSEMBLY=true" > $(INSTALL_ROOT)/hive/conf/hive-env.sh
 	sed -e "s@hdfs:///user/hive/@$$\{fs.default.name\}$(APP_PATH)/hive/@" \
 	-e "s/__NODES__/$(ALL_NODES)/g" \
@@ -183,6 +188,7 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 	sed -i~ \
 	-e "s/org.apache.hadoop.hive.ql.security.ProxyUserAuthenticator//" \
 	-e "s/org.apache.atlas.hive.hook.HiveHook//" \
+	-e "s/org.apache.hadoop.hive.ql.security.authorization.AuthorizationPreEventListener//" \
 	-e "s@jceks://file/usr/hdp/current/hive-server2/conf/hive-site.jceks@jceks://file/$(INSTALL_ROOT)/hive/conf/hive-site.jceks@" \
 	-e "s@/tmp/hive/operation_logs@/tmp/$$USER/operation_logs@" \
 	$$($(METASTORE) || echo '-e s@thrift://[^<]*@@') \
