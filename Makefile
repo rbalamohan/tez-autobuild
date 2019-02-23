@@ -201,6 +201,9 @@ install: tez-dist.tar.gz hive-dist.tar.gz
 		-e "x;" \
 		$(INSTALL_ROOT)/hive/conf/hiveserver2-site.xml ;\
 	fi
+	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/hiveserver2-site.xml)" != "" ]; then\
+	    sed -i~ "s/org.apache.ranger.authorization.hive.authorizer.RangerHiveAuthorizerFactory//" $(INSTALL_ROOT)/hive/conf/hiveserver2-site.xml; \
+	fi 
 	if [ "$$(ls $(INSTALL_ROOT)/hive/conf/hivemetastore-site.xml)" != "" ]; then\
 		sed -i~ "s/JSON_FILE,//" $(INSTALL_ROOT)/hive/conf/hivemetastore-site.xml; \
 	fi 
