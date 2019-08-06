@@ -19,7 +19,7 @@ Run
 
 it generates a run.sh script in the local dir with the configuration for running (including date).
 
-        ./llap-slider-<date>/run.sh
+        ./llap-yarn-<date>/run.sh
 
 Confirm application is running with
 
