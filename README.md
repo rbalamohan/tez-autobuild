@@ -21,9 +21,9 @@ it generates a run.sh script in the local dir with the configuration for running
 
         ./llap-slider-<date>/run.sh
 
-Confirm slider is running with
+Confirm application is running with
 
-        slider status llap0
+        yarn top
         
 Alternatively, hive llap status tool can be used to check if all nodes are running llap daemons
 
@@ -33,8 +33,8 @@ If that fails to startup, check whether you have JDK8 in the right location spec
 
 Finally, to test this out, you can do
 
-    # ./dist/hive/bin/hive
-    hive> select count(1) from sample_07;
+    # ./dist/hive/bin/beeline -u jdbc://localhost:<port>/
+    beeline> select count(1) from sample_07;
 
 and it should use LLAP. Switch in and out with `hive.llap.execution.mode`, the execution will switch between `container` and `llap`.
 
