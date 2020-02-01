@@ -63,13 +63,13 @@ ifneq ($(APT),)
 endif
 
 maven: 
-	$(OFFLINE) || wget -c http://www.us.apache.org/dist/maven/maven-3/$(MAVEN_VERSION)/binaries/apache-maven-$(MAVEN_VERSION)-bin.tar.gz
+	$(OFFLINE) || wget -c https://www.us.apache.org/dist/maven/maven-3/$(MAVEN_VERSION)/binaries/apache-maven-$(MAVEN_VERSION)-bin.tar.gz
 	-- mkdir -p $(INSTALL_ROOT)/maven/
 	tar -C $(INSTALL_ROOT)/maven/ --strip-components=1 -xzvf apache-maven-$(MAVEN_VERSION)-bin.tar.gz
 	-- sed -i~ -e "/<profiles>/r vendor-repos.xml" $(INSTALL_ROOT)/maven/conf/settings.xml  
 
 ant: 
-	$(OFFLINE) || wget -c http://archive.apache.org/dist/ant/binaries/apache-ant-1.9.1-bin.tar.gz
+	$(OFFLINE) || wget -c https://archive.apache.org/dist/ant/binaries/apache-ant-1.9.1-bin.tar.gz
 	-- mkdir -p $(INSTALL_ROOT)/ant/
 	tar -C $(INSTALL_ROOT)/ant/ --strip-components=1 -xzvf apache-ant-1.9.1-bin.tar.gz
 	-- yum -y remove ant
@@ -87,7 +87,7 @@ clean-protobuf:
 	rm -rf protobuf-2.5.0/
 
 mysql: 
-	$(OFFLINE) || wget -c http://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.29/mysql-connector-java-5.1.29.jar
+	$(OFFLINE) || wget -c https://repo1.maven.org/maven2/mysql/mysql-connector-java/5.1.29/mysql-connector-java-5.1.29.jar
 
 tez: git maven protobuf
 	test -d tez || git clone --branch $(TEZ_BRANCH) https://git-wip-us.apache.org/repos/asf/tez.git tez
