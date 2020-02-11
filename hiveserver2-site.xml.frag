@@ -57,9 +57,10 @@
       <name>hive.metastore.fastpath</name>
       <value>true</value>
     </property>
+
     <property>
       <name>hive.service.metrics.reporter</name>
-      <value>HADOOP2</value>
+      <value>JMX</value>
     </property>
 
 </configuration>
