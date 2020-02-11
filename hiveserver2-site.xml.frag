@@ -62,4 +62,9 @@
       <value>HADOOP2</value>
     </property>
 
+    <property>
+      <name>hive.service.metrics.codahale.reporter.classes</name>
+      <value>org.apache.hadoop.hive.common.metrics.metrics2.JmxMetricsReporter</value>
+    </property>
+
 </configuration>
