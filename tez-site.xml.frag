@@ -50,7 +50,7 @@
   </property>
   <property>
     <name>tez.am.resource.memory.mb</name>
-    <value>${mapreduce.map.memory.mb}</value>
+    <value>2048</value>
   </property>
   <property>
     <name>tez.am.launch.cmd-opts</name>

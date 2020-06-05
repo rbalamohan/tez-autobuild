@@ -297,7 +297,7 @@
   </property>
 
   <property>
-    <name>hive.llap.daemon.allow.permanent.fns</name>
+    <name>hive.llap.allow.permanent.fns</name>
     <value>false</value>
   </property>
 
