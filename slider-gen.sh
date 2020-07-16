@@ -9,6 +9,7 @@ if [ "x$HADOOP_HOME" = "x" ] && [ -d /usr/hdp ] ; then
 	export HADOOP_HOME=/usr/hdp/current/hadoop-client
 fi
 
+# Add -Dasync.profiler.home=/grid/0/async-profiler/ to --args if you need to enable profiler
 #export HIVE_AUX_JARS_PATH=$PWD/hive/packaging/target/apache-hive-3.0.0-SNAPSHOT-bin/apache-hive-3.0.0-SNAPSHOT-bin/lib/jetty-rewrite-9.3.8.v20160314.jar
 ./dist/hive/bin/hive\
  --config ./dist/hive/conf/\
