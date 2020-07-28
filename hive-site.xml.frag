@@ -67,7 +67,7 @@
   </property>
   <property>
     <name>hive.llap.task.scheduler.locality.delay</name>
-    <value>-1</value>
+    <value>30s</value>
   </property>
 <!--
   <property>
