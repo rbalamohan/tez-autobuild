@@ -97,7 +97,7 @@ tez: git maven protobuf
 	            tez/pom.xml
 	export PATH=$(INSTALL_ROOT)/protoc/bin:$(INSTALL_ROOT)/maven/bin/:$$PATH; \
 	cd tez/; . /etc/profile; \
-	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Pazure -Phadoop28 $$($(OFFLINE) && echo "-o");
+	$(MVN) $(CLEAN) package install -DskipTests -Dhadoop.version=$(HADOOP_VERSION) -Paws -Pazure $$($(OFFLINE) && echo "-o");
 	# for hadoop version < 2.4.0, use -P\!hadoop24 -P\!hadoop26
 
 clean-tez:
